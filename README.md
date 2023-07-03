@@ -2,7 +2,7 @@
 Conway's Game of Life implemented using WebGPU compute shaders. Programmed in Rust using the wgpu crate.
 Can be compiled and run natively using ```cargo run --release```, or compiled to WASM and run in the web.
 
-WASM version can be demoed at https://portfolio.agreenweb.com. Click the "?" in the top right of the window for input instructions. Because this uses compute shaders, it requires a browser that supports WebGPU to run (https://caniuse.com/webgpu).
+WASM version can be demoed at https://portfolio.agreenweb.com/gol. Click the "?" in the top right of the window for input instructions. Because this uses compute shaders, it requires a browser that supports WebGPU to run (https://caniuse.com/webgpu).
 
 If you want to test this in the web yourself, build using ```wasm-pack build --target web```, then use a server to serve index.html, index.js, and the pkg folder. Compiling to WASM requires that the RUSTFLAGS environment variable is set to ```RUSTFLAGS=--cfg=web_sys_unstable_apis cargo run```.
 
