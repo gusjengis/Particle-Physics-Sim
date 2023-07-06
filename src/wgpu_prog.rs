@@ -86,7 +86,7 @@ impl WGPUProg {
         let tex1 = Texture::new(&config, include_bytes!("../golBase1.png"), 0);
 
         // let tex2 = Texture::new(&config, image, 4);
-        let tex2 = Texture::new(&config, include_bytes!("../Doodle4.png"), 3);
+        let tex2 = Texture::new(&config, include_bytes!("../golBase1.png"), 3);
 
        
         // let buffer2 = Uniform::new(&config.device, golBase, String::from("dimensions"), 6);
