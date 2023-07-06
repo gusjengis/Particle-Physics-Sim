@@ -8,11 +8,13 @@ struct VertexIn {
 struct Dimensions {
     width: f32, time: f32,
     height: f32, temp: f32,
+    xOff: f32, yOff: f32,
+    scale: f32, dark: f32,
 }
 
-struct Timestamp {
-    millis: f32, millis1: f32, millis2: f32, millis3: f32
-}
+// struct Timestamp {
+//     millis: f32, millis1: f32, millis2: f32, millis3: f32
+// }
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
@@ -59,17 +61,17 @@ fn vs_main(
     //     in.position.z,
     //     1.0
     // );
-    let WH = textureDimensions(golTex);
+    let WH = textureDimensions(golTex);//vec2(11584, 11584);
     let texAspect = f32(WH.x)/(f32(WH.y));
 
-    let int_scaler = floor(dim.height/f32(WH.y));
+    let int_scaler = dim.scale;//floor(dim.height/f32(WH.y));
     var atemp = int_scaler*f32(WH.y)/dim.height;
     // atemp = floor(atemp*f32(WH.y)*int_scaler)/(f32(WH.y)*int_scaler);
     var x = texAspect*in.position.x/aspect*atemp;
     var y = in.position.y*atemp;
 
-    x = floor(x*f32(WH.x)*int_scaler)/(f32(WH.x)*int_scaler);
-    y = floor(y*f32(WH.y)*int_scaler)/(f32(WH.y)*int_scaler);
+    x = floor((x*f32(WH.x))*int_scaler)/(f32(WH.x)*int_scaler) + 2.0*dim.xOff/dim.width;
+    y = floor((y*f32(WH.y))*int_scaler)/(f32(WH.y)*int_scaler) - 2.0*dim.yOff/dim.height;
 
     // y = floor(y*f32(WH.y))/f32(WH.y); 
 
@@ -91,8 +93,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // let tex = golTex;
     // let texSamp = golTexSamp;
 
-    let WH = textureDimensions(golTex);
-    let int_scaler = floor(dim.height/f32(WH.y));
+    let WH = textureDimensions(golTex);//vec2(11584, 11584);//
+    let int_scaler = dim.scale;//floor(dim.height/f32(WH.y));
     // let WH = vec2(u32(32), u32(1));
 
     let vlines = f32(WH.y);
@@ -104,7 +106,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let pixel_coord = vec2(i32(in.tex_coords.x*f32(WH.x)), i32(in.tex_coords.y*f32(WH.y)));
     // let tex2Color = textureLoad(golTex, pixel_coord, 0);//textureSample(t_diffuse2, s_diffuse2, vec2(in.tex_coords.x, (in.tex_coords.y*240.0)%1.0));//moddedCoords);//pixelate(in.tex_coords, pixels*2.0));//512.0));
     // var color = textureSample(golTex, golTexSamp, in.tex_coords);//pixelate(tex, in.tex_coords, pixels));// + tex2Color;//256.0));
-    var pixColor = textureLoad(golTex, pixel_coord, 0);//textureSample(golTex, golTexSamp, pixelate(golTex, in.tex_coords, pixels));// + tex2Color;//256.0));
+    // let alive = getPixel(pixel_coord);
+    var pixColor = textureLoad(golTex, pixel_coord, 0);//textureSample(golTex, golTexSamp, in.tex_coords);//textureSample(golTex, golTexSamp, pixelate(golTex, in.tex_coords, pixels));// + tex2Color;//256.0));
+    // var pixColor = vec4(1.0, 1.0, 1.0 ,1.0);
+    // if(alive == 1u){
+    //     pixColor = vec4(0.0,0.0,0.0,1.0);
+    // } else if(alive == 2u){
+    //     pixColor = vec4(1.0,0.0,0.0,1.0);
+    // }
     // var vPixColor = textureSample(golTex, golTexSamp, vec2(in.tex_coords.x, pixelateVertically(golTex, in.tex_coords, pixels)));// + tex2Color;//256.0));
     // if((vlines*in.tex_coords.y)%1.0 > height){
     //     discard;
@@ -121,15 +130,34 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // if(tex2Color.r == 0.0 && tex2Color.g==0.0 && tex2Color.b == 0.0){
     //     discard;
     // }
+    // if(pixColor.r == 0.0){
+    //     pixColor = vec4(1.0, 1.0, 1.0, 1.0);
+    // } else {
+    //     pixColor = vec4(0.0, 0.0, 0.0, 1.0);
+    // }
     // var avg = vec4((vPixColor.r + 2.0*pixColor.r)/3.0, (vPixColor.g + 2.0*pixColor.g)/3.0, (vPixColor.b + 2.0*pixColor.b)/3.0, 1.0);
     // if((lines*in.tex_coords.y)%1.0 > height){
         //pixColor = vec4(avg.rgb*0.01, avg.a);
     // }
-    let out = pixColor;
-    let r = pow(out.r, (2.2));
-    let g = pow(out.g, (2.2));
-    let b = pow(out.b, (2.2));  
-    return vec4(r, g, b, 1.0);
+
+    
+
+    var out = pixColor;// * f32(alive);
+
+    
+    if(dim.dark == 1.0){
+        out.r = 1.0 - out.r;
+        out.g = 1.0 - out.g;
+        out.b = 1.0 - out.b;
+    }
+    //SRGB Mapping
+        out.r = pow(out.r, (2.2));
+        out.g = pow(out.g, (2.2));
+        out.b = pow(out.b, (2.2));  
+    
+    //Invert Colors vvv
+    
+    return vec4(out.r, out.g, out.b, 1.0);
 }
 
 
@@ -153,3 +181,33 @@ fn pixelateVertically(texture: texture_2d<f32>, texCoord: vec2<f32> , pixels: f3
     y /= f32(WH.y);
     return y;
 }
+
+fn getPixel(pix_coord: vec2<i32>) -> u32 {
+//   let WH = textureDimensions(tex2);
+  if(pix_coord.x < 0 || pix_coord.x > (11584 - 1) || pix_coord.y < 0 || pix_coord.y > (11584 - 1)){
+    return 0u;
+  } else {
+    let UVB = coordToUVB(pix_coord.x, pix_coord.y);
+    // if(UVB.z == 0){ return 1u; }
+    // return u32(UVB.z);
+    let texSample = textureLoad(golTex, UVB.xy, 0);
+    return (((u32(4278190080.0*texSample.r) & 4278190080u) + (u32(16711680.0*texSample.g) & 16711680u) + (u32(65280.0*texSample.b) & 65280u) + u32(255.0*texSample.a)) & (1u << u32(UVB.z))) >> u32(UVB.z);// 
+  }
+}
+
+fn coordToUVB(x: i32, y: i32) -> vec3<i32> {
+  let temp1 = y * 11584 + x;
+  var returnVal = vec3(0,0,0);
+  returnVal.z = 31 - temp1 % 32;
+  let temp2 = temp1/32;
+  returnVal.x = temp2 % 2048;
+  returnVal.y = temp2 / 2048;
+
+  return returnVal;
+}
+
+fn UVBToCoord(x: i32, y: i32, b: i32) -> vec2<i32> {
+  let temp = (y * 2048 + x) * 32 + b;
+
+  return vec2(temp%11584, temp/11584);
+}   

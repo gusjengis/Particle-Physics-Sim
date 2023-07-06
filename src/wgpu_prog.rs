@@ -76,17 +76,17 @@ impl WGPUProg {
             label: Some("Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
         });
-        let dim_contents = &[config.size.width as f32, config.size.height as f32, config.size.width as f32, config.size.height as f32,];
+        let dim_contents = &[config.size.width as f32, config.size.height as f32, config.size.width as f32, config.size.height as f32, 0 as f32, 0 as f32, 1 as f32, 0 as f32];
         // let cursor_contents = &[0.0, 0.0, 0.0, 0.0];
         let time_contents = &[0.0, 0.0, 0.0, 0.0];
         let dim_uniform = Uniform::new(&config.device, bytemuck::cast_slice(dim_contents), String::from("dimensions"), 2);
         // let cursor_uniform = Uniform::new(&config.device, bytemuck::cast_slice(cursor_contents), String::from("cursor"), 1);
         // let time_uniform = Uniform::new(&config.device, bytemuck::cast_slice(time_contents), String::from("time"), 3);
         
-        let tex1 = Texture::new(&config, include_bytes!("../golBase1.png"), 0);
+        let tex1 = Texture::new(&config, include_bytes!("../golBase.png"), 0);
 
         // let tex2 = Texture::new(&config, image, 4);
-        let tex2 = Texture::new(&config, include_bytes!("../golBase1.png"), 3);
+        let tex2 = Texture::new(&config, include_bytes!("../golBase.png"), 3);
 
        
         // let buffer2 = Uniform::new(&config.device, golBase, String::from("dimensions"), 6);
@@ -258,8 +258,8 @@ impl WGPUComputeProg {
         //create resources
         // let golBase = &[0 as u8; 256*256 as usize];
 
-        let mut tex1 = Texture::new(&config, include_bytes!("../golBase1.png"), 0);
-        let mut tex2 = Texture::new(&config, include_bytes!("../golBase1.png"), 1);
+        let mut tex1 = Texture::new(&config, include_bytes!("../golBase.png"), 0);
+        let mut tex2 = Texture::new(&config, include_bytes!("../golBase.png"), 1);
 
         // let buffer1 = BufferUniform::new(&config.device, golBase, String::from("dimensions"), 5);
 
@@ -308,8 +308,8 @@ impl WGPUComputeProg {
     }
 
     pub fn clearTextures(&mut self, config: &WGPUConfig){
-        self.tex1 = Texture::new(&config, include_bytes!("../golBase2.png"), 0);
-        self.tex2 = Texture::new(&config, include_bytes!("../golBase2.png"), 1);
+        self.tex1 = Texture::new(&config, include_bytes!("../golClear.png"), 0);
+        self.tex2 = Texture::new(&config, include_bytes!("../golClear.png"), 1);
         self.swap(config);
     }
 
@@ -367,7 +367,7 @@ impl WGPUComputeProg {
                 compute_pass.set_bind_group(1, &self.tex2.diffuse_bind_group, &[]);
             }
             // Dispatch the compute shader
-            compute_pass.dispatch_workgroups(self.tex1.dimensions.0/10, self.tex1.dimensions.1/10, 1);
+            compute_pass.dispatch_workgroups(self.tex1.dimensions.0/16, self.tex1.dimensions.1/16, 1);
 
             // You can also set other compute pass options, such as memory barriers and synchronization
 

@@ -22,14 +22,21 @@ pub struct Client {
     last_draw: chrono::DateTime<Local>,
     log_framerate: bool,
     start_time: DateTime<Local>,
+    bench_start_time: DateTime<Local>,
     generations: f32,
     temp: f32,
     toggle: bool,
     prev_gen_time: DateTime<Local>,
-    cursor_pos: (f32, f32),
+    cursor_pos: (i32, i32),
     HL: bool,
     genPerFrame: i32,
-    generation: i32
+    prevGen: i32,
+    generation: i32,
+    xOff: i32,
+    yOff: i32,
+    scale: f32,
+    middle: bool,
+    dark: f32
 }
 
 impl Client {
@@ -47,14 +54,21 @@ impl Client {
         let log_framerate = false;
         let wgpu_prog = WGPUProg::new(&wgpu_config);
         let start_time = Local::now();
+        let bench_start_time = Local::now();
         let generations = 100.0;//256.1;
         let temp = 1.0;//256.1;
         let toggle = false;
         let prev_gen_time = Local::now();
-        let cursor_pos = (0.0, 0.0);
+        let cursor_pos = (0, 0);
         let HL = false;
         let genPerFrame = 1; 
+        let prevGen = 0;
         let generation = 0;
+        let xOff = 0;
+        let yOff = 0;
+        let scale = 8.0;
+        let middle = false;
+        let dark = 1.0;
         let mut client = Client {
             canvas,
             wgpu_config,
@@ -62,14 +76,21 @@ impl Client {
             log_framerate,
             wgpu_prog,
             start_time,
+            bench_start_time,
             temp,
+            prevGen,
             generations,
             toggle,
             prev_gen_time,
             cursor_pos,
             HL,
             genPerFrame,
-            generation
+            generation,
+            xOff,
+            yOff,
+            scale,
+            middle,
+            dark
         };
 
         //Start Event Loop
@@ -127,43 +148,60 @@ impl Client {
     //     // remove todo!()
     // }
 
+    fn cursorToPixel(&self) -> Option<(u32, u32)> {
+        let cursor = (self.cursor_pos.0 - self.xOff, self.cursor_pos.1 - self.yOff);
+        let dim = &self.wgpu_prog.shader_prog.tex2.dimensions;
+        let windowDim = self.wgpu_config.size;
+        let int_scale = self.scale as f32;//windowDim.height/dim.1;
+        let xOff = ((windowDim.width as f32) - (dim.0 as f32)*(int_scale))/2.0; 
+        let yOff = ((windowDim.height as f32) - (dim.1 as f32)*(int_scale))/2.0;
+        let coords = (((dim.0 as f32)*(cursor.0 as f32-xOff )/(dim.0 * int_scale as u32) as f32) as u32, ((dim.1 as f32)*(cursor.1 as f32-yOff )/(dim.1 * int_scale as u32 ) as f32) as u32);
+        if(coords.0 < 0 || coords.0 > dim.0 - 1 || coords.1 < 0 || coords.1 > dim.1 - 1){
+            return None;
+        }
+        return Some(coords);
+    }
+
+    fn writeToTex(&self, pixel: (u32, u32), color: &[u8]) {
+        let mut texture = &self.wgpu_prog.shader_prog.tex2.texture;
+        let mut dimensions = &self.wgpu_prog.shader_prog.tex2.dimensions;
+        if(self.wgpu_prog.shader_prog.use1){
+            texture = &self.wgpu_prog.shader_prog.tex1.texture;
+            dimensions = &self.wgpu_prog.shader_prog.tex1.dimensions;
+        }
+        self.wgpu_config.queue.write_texture(
+            // Tells wgpu where to copy the pixel data
+            wgpu::ImageCopyTexture {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d {
+                    x: pixel.0,
+                    y: pixel.1,
+                    z: 0
+                },
+                aspect: wgpu::TextureAspect::All,
+            },
+            // The actual pixel data
+            color,
+            // The layout of the texture
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some((4 * dimensions.0) as u32),
+                rows_per_image: Some((dimensions.1) as u32),
+            },
+            wgpu::Extent3d {
+                width: 1, 
+                height: 1,
+                depth_or_array_layers: 1,
+            }
+        );
+    }
     fn randomize(&mut self){
         for x in 0..self.wgpu_prog.shader_prog.tex1.dimensions.0-1 {
             for y in 0..self.wgpu_prog.shader_prog.tex1.dimensions.1-1 {
                 let BorW = (rand::random::<f32>()).round();
                 if(!self.toggle){
-                    let mut texture = &self.wgpu_prog.shader_prog.tex2.texture;
-                    let mut dimensions = &self.wgpu_prog.shader_prog.tex2.dimensions;
-                    if(self.wgpu_prog.shader_prog.use1){
-                        texture = &self.wgpu_prog.shader_prog.tex1.texture;
-                        dimensions = &self.wgpu_prog.shader_prog.tex1.dimensions;
-                    }
-                    self.wgpu_config.queue.write_texture(
-                        // Tells wgpu where to copy the pixel data
-                        wgpu::ImageCopyTexture {
-                            texture: &texture,
-                            mip_level: 0,
-                            origin: wgpu::Origin3d {
-                                x: x,
-                                y: y,
-                                z: 0
-                            },
-                            aspect: wgpu::TextureAspect::All,
-                        },
-                        // The actual pixel data
-                        &[(255.0*BorW) as u8, (255.0*BorW) as u8, (255.0*BorW) as u8, (255.0*BorW) as u8],
-                        // The layout of the texture
-                        wgpu::ImageDataLayout {
-                            offset: 0,
-                            bytes_per_row: Some((4 * dimensions.0) as u32),
-                            rows_per_image: Some((dimensions.1) as u32),
-                        },
-                        wgpu::Extent3d {
-                            width: 1, 
-                            height: 1,
-                            depth_or_array_layers: 1,
-                        }
-                    );
+                    self.writeToTex((x, y), &[(255.0*BorW) as u8, (255.0*BorW) as u8, (255.0*BorW) as u8, (255.0*BorW) as u8]);
                 }
             }
         }
@@ -207,7 +245,7 @@ impl Client {
 
             let windowDim = self.wgpu_config.size;
             let dim = &self.wgpu_prog.shader_prog.tex2.dimensions;
-            let int_scale = (windowDim.height/dim.1) as f32;
+            let int_scale = self.scale as f32;//(windowDim.height/dim.1) as f32;
             
             if(self.temp > int_scale - 1.0){
                 self.temp = int_scale - 1.0;
@@ -216,109 +254,76 @@ impl Client {
                 &[self.wgpu_config.size.width as f32,
                   self.wgpu_config.size.width as f32, 
                   self.wgpu_config.size.height as f32,
-                  self.wgpu_config.size.height as f32]
+                  self.wgpu_config.size.height as f32,
+                  self.xOff as f32,
+                  self.yOff as f32,
+                  self.scale as f32,
+                  self.dark as f32]
             ));
         }
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
         match event {
-            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. } => {
-                let dim = &self.wgpu_prog.shader_prog.tex2.dimensions;
-                let windowDim = self.wgpu_config.size;
-                let int_scale = windowDim.height/dim.1;
-                let xOff = ((windowDim.width as f32) - (dim.0 as f32)*(int_scale as f32))/2.0;
-                let yOff = ((windowDim.height as f32) - (dim.1 as f32)*(int_scale as f32))/2.0;
-                let coords:(u32, u32) = (((dim.0 as f32)*(self.cursor_pos.0-xOff)/(dim.0 * int_scale ) as f32) as u32, ((dim.1 as f32)*(self.cursor_pos.1-yOff)/(dim.1 * int_scale ) as f32) as u32);
-                if(coords.0 < 0 || coords.0 > dim.0 - 1 || coords.1 < 0 || coords.1 > dim.1 - 1){
-                    return true;
-                }
-                if(!self.toggle){
-                    let mut texture = &self.wgpu_prog.shader_prog.tex2.texture;
-                    let mut dimensions = &self.wgpu_prog.shader_prog.tex2.dimensions;
-                    if(self.wgpu_prog.shader_prog.use1){
-                        texture = &self.wgpu_prog.shader_prog.tex1.texture;
-                        dimensions = &self.wgpu_prog.shader_prog.tex1.dimensions;
-                    }
-                    self.wgpu_config.queue.write_texture(
-                        // Tells wgpu where to copy the pixel data
-                        wgpu::ImageCopyTexture {
-                            texture: &texture,
-                            mip_level: 0,
-                            origin: wgpu::Origin3d {
-                                x: coords.0,
-                                y: coords.1,
-                                z: 0
-                            },
-                            aspect: wgpu::TextureAspect::All,
-                        },
-                        // The actual pixel data
-                        &[0 as u8, 0 as u8, 0 as u8, 0 as u8],
-                        // The layout of the texture
-                        wgpu::ImageDataLayout {
-                            offset: 0,
-                            bytes_per_row: Some((4 * dimensions.0) as u32),
-                            rows_per_image: Some((dimensions.1) as u32),
-                        },
-                        wgpu::Extent3d {
-                            width: 1, 
-                            height: 1,
-                            depth_or_array_layers: 1,
+            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. } => {
+                let mut coords = self.cursorToPixel();
+                match coords {
+                    Some(value) => {
+                        if(!self.toggle){
+                            let pixel = coords.unwrap();
+                            self.writeToTex(pixel, &[0 as u8, 0 as u8, 0 as u8, 0 as u8]);
                         }
-                    );
+                        return true;
+                    }
+                    None => {return true;}
                 }
+            },
+            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. } => {
+                let mut coords = self.cursorToPixel();
+                match coords {
+                    Some(value) => {
+                        if(!self.toggle){
+                            let pixel = coords.unwrap();
+                            self.writeToTex(pixel, &[255 as u8, 255 as u8, 255 as u8, 255 as u8]);
+                        }
+                        return true;
+                    }
+                    None => {return true;}
+                }
+            },
+            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Middle, .. } => {
+                self.middle = true;
                 return true;
             },
-            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. } => {
-                
-                let windowDim = self.wgpu_config.size;
-                let dim = &self.wgpu_prog.shader_prog.tex2.dimensions;
-                let int_scale = windowDim.height/dim.1;
-                let xOff = ((windowDim.width as f32) - (dim.0 as f32)*(int_scale as f32))/2.0;
-                let yOff = ((windowDim.height as f32) - (dim.1 as f32)*(int_scale as f32))/2.0;
-                let coords:(u32, u32) = (((dim.0 as f32)*(self.cursor_pos.0-xOff)/(dim.0 * int_scale ) as f32) as u32, ((dim.1 as f32)*(self.cursor_pos.1-yOff)/(dim.1 * int_scale ) as f32) as u32);
-                if(coords.0 < 0 || coords.0 > dim.0 - 1 || coords.1 < 0 || coords.1 > dim.1 - 1){
-                    return true;
-                }
-                if(!self.toggle){
-                    let mut texture = &self.wgpu_prog.shader_prog.tex2.texture;
-                    let mut dimensions = &self.wgpu_prog.shader_prog.tex2.dimensions;
-                    if(self.wgpu_prog.shader_prog.use1){
-                        texture = &self.wgpu_prog.shader_prog.tex1.texture;
-                        dimensions = &self.wgpu_prog.shader_prog.tex1.dimensions;
+            WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Middle, .. } => {
+                self.middle = false;
+                return true;
+            }
+            WindowEvent::MouseWheel { device_id, delta, phase, modifiers } => {
+                match delta {
+                    MouseScrollDelta::LineDelta(x, y) => {
+                        self.scale = (self.scale as f32*((2 as f32).powf(*y)));
                     }
-                    self.wgpu_config.queue.write_texture(
-                        // Tells wgpu where to copy the pixel data
-                        wgpu::ImageCopyTexture {
-                            texture: &texture,
-                            mip_level: 0,
-                            origin: wgpu::Origin3d {
-                                x: coords.0,
-                                y: coords.1,
-                                z: 0
-                            },
-                            aspect: wgpu::TextureAspect::All,
-                        },
-                        // The actual pixel data
-                        &[255 as u8, 255 as u8, 255 as u8, 255 as u8],
-                        // The layout of the texture
-                        wgpu::ImageDataLayout {
-                            offset: 0,
-                            bytes_per_row: Some((4 * dimensions.0) as u32),
-                            rows_per_image: Some((dimensions.1) as u32),
-                        },
-                        wgpu::Extent3d {
-                            width: 1, 
-                            height: 1,
-                            depth_or_array_layers: 1,
-                        }
-                    );
+                    _ => {}
+                }
+                if(self.scale < 1.0){ self.scale = 1.0; }
+                if(self.temp > self.scale as f32 - 1.0){
+                    self.temp = self.scale as f32 - 1.0;
+                }
+                if(self.temp < 0.0){
+                    self.temp = 0.0;
                 }
                 return true;
+
             },
             WindowEvent::CursorMoved { position, .. } => {
-                self.cursor_pos = (position.x as f32, position.y as f32);
-                
+                let delta = (position.x as i32 - self.cursor_pos.0, position.y as i32 - self.cursor_pos.1);
+                self.cursor_pos = (position.x as i32, position.y as i32);
+                if(self.middle){
+                    // let aspect = self.wgpu_config.size.width as f32/self.wgpu_config.size.height as f32;//println!("{}", self.wgpu_config.size.width as f32/self.wgpu_config.size.height as f32);
+                    self.xOff += (delta.0 as f32) as i32;
+                    self.yOff += (delta.1 as f32) as i32;
+                }
                 // self.clear_color = wgpu::Color {
                 //     r: position.x as f64 / self.size.width as f64,
                 //     g: position.y as f64 / self.size.height as f64,
@@ -361,6 +366,16 @@ impl Client {
                                 return true;
                             },
                     KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::H),
+                        state: ElementState::Pressed,
+                        ..
+                    } => {
+                            // self.temp = 1.0;
+                            self.xOff = 0;
+                            self.yOff = 0;
+                            return true;
+                        },
+                    KeyboardInput {
                         virtual_keycode: Some(VirtualKeyCode::C),
                         state: ElementState::Pressed,
                         ..
@@ -383,17 +398,29 @@ impl Client {
                             return true;
                         },
                     KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::D),
+                        state: ElementState::Pressed,
+                        ..
+                    } => {
+                            if(self.dark == 0.0){
+                                self.dark = 1.0;
+                            } else {
+                                self.dark = 0.0
+                            }
+                            return true;
+                        },
+                    KeyboardInput {
                         virtual_keycode: Some(VirtualKeyCode::Down),
                         state: ElementState::Pressed,
                         ..
                     } => {
                             let windowDim = self.wgpu_config.size;
                             let dim = &self.wgpu_prog.shader_prog.tex2.dimensions;
-                            let int_scale = (windowDim.height/dim.1) as f32;
+                            // let int_scale = self.scale as f32;//(windowDim.height/dim.1) as f32;
                             self.temp += 1.0;
                             
-                            if(self.temp > int_scale - 1.0){
-                                self.temp = int_scale - 1.0;
+                            if(self.temp > self.scale as f32 - 1.0){
+                                self.temp = self.scale as f32 - 1.0;
                             }
                             return true;
                         },
@@ -471,7 +498,11 @@ impl Client {
             &[self.wgpu_config.size.width as f32,
               time as f32, 
               self.wgpu_config.size.height as f32,
-              self.temp,]
+              self.temp,
+              self.xOff as f32,
+              self.yOff as f32,
+              self.scale as f32,
+              self.dark as f32]
         ));   
 
         // if(self.temp < 256.5){
@@ -549,7 +580,7 @@ impl Client {
 
             render_pass.draw_indexed(0..6 as u32, 0, 0..1); // 3.
 
-            println!("{}", self.generation);
+            
         }
     
         // submit will accept anything that implements IntoIter
@@ -558,13 +589,24 @@ impl Client {
 
         let now = Local::now();
         if(self.log_framerate){
-            Client::clearConsole();
-            #[cfg(not(target_arch = "wasm32"))] {
-                println!("{}", 1000000.0/(now.timestamp_micros() - self.last_draw.timestamp_micros()) as f32);
+            
+            let time_since = (now.timestamp_millis() - self.bench_start_time.timestamp_millis()) as f32/1000.0;
+            if(time_since >= 0.25){
+                Client::clearConsole();
+                #[cfg(not(target_arch = "wasm32"))] {
+                    println!("FPS: {}", 1000000.0/(now.timestamp_micros() - self.last_draw.timestamp_micros()) as f32);
+                }
+                #[cfg(target_arch = "wasm32")] {
+                    log::warn!("FPS: {}", 1000000.0/(now.timestamp_micros() - self.last_draw.timestamp_micros()) as f32);
+                }
+                println!("Generations/s: {}, Total Generations: {}", (self.generation - self.prevGen) as f32/time_since, self.generation);
+                println!("Generations/Update: {}, Time Between Updates(ms): {}", self.genPerFrame as f32, self.generations);
+                println!("Scale: {}, (xOff, yOff): ({}, {})", self.scale as f32, self.xOff, self.yOff);
+                self.prevGen = self.generation;
+                self.bench_start_time = Local::now();
+                
             }
-            #[cfg(target_arch = "wasm32")] {
-                log::warn!("{}", 1000000.0/(now.timestamp_micros() - self.last_draw.timestamp_micros()) as f32);
-            }
+            
         }
         
         self.last_draw = now;
