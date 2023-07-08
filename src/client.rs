@@ -32,8 +32,8 @@ pub struct Client {
     genPerFrame: i32,
     prevGen: i32,
     generation: i32,
-    xOff: i32,
-    yOff: i32,
+    xOff: f32,
+    yOff: f32,
     scale: f32,
     middle: bool,
     dark: f32
@@ -64,8 +64,8 @@ impl Client {
         let genPerFrame = 1; 
         let prevGen = 0;
         let generation = 0;
-        let xOff = 0;
-        let yOff = 0;
+        let xOff = 0.0;
+        let yOff = 0.0;
         let scale = 8.0;
         let middle = false;
         let dark = 1.0;
@@ -149,7 +149,7 @@ impl Client {
     // }
 
     fn cursorToPixel(&self) -> Option<(u32, u32)> {
-        let cursor = (self.cursor_pos.0 - self.xOff, self.cursor_pos.1 - self.yOff);
+        let cursor = (self.cursor_pos.0 - self.xOff as i32, self.cursor_pos.1 - self.yOff as i32);
         let dim = &self.wgpu_prog.shader_prog.tex2.dimensions;
         let windowDim = self.wgpu_config.size;
         let int_scale = self.scale as f32;//windowDim.height/dim.1;
@@ -257,7 +257,7 @@ impl Client {
                   self.wgpu_config.size.height as f32,
                   self.xOff as f32,
                   self.yOff as f32,
-                  self.scale as f32,
+                  self.scale as f32,  
                   self.dark as f32]
             ));
         }
@@ -300,13 +300,21 @@ impl Client {
                 return true;
             }
             WindowEvent::MouseWheel { device_id, delta, phase, modifiers } => {
+                let mut mY = 0.0;
                 match delta {
                     MouseScrollDelta::LineDelta(x, y) => {
-                        self.scale = (self.scale as f32*((2 as f32).powf(*y)));
+                        mY = *y;
+                        self.scale = (self.scale as f32*((2 as f32).powf(mY)));
+                        self.xOff *= ((2 as f32).powf(mY));
+                        self.yOff *= ((2 as f32).powf(mY));
                     }
                     _ => {}
                 }
-                if(self.scale < 1.0){ self.scale = 1.0; }
+                if(self.scale < 1.0){ 
+                    self.scale = 1.0; 
+                    self.xOff /= ((2 as f32).powf(mY));
+                    self.yOff /= ((2 as f32).powf(mY));
+                }
                 if(self.temp > self.scale as f32 - 1.0){
                     self.temp = self.scale as f32 - 1.0;
                 }
@@ -321,8 +329,8 @@ impl Client {
                 self.cursor_pos = (position.x as i32, position.y as i32);
                 if(self.middle){
                     // let aspect = self.wgpu_config.size.width as f32/self.wgpu_config.size.height as f32;//println!("{}", self.wgpu_config.size.width as f32/self.wgpu_config.size.height as f32);
-                    self.xOff += (delta.0 as f32) as i32;
-                    self.yOff += (delta.1 as f32) as i32;
+                    self.xOff += (delta.0 as f32) as f32;
+                    self.yOff += (delta.1 as f32) as f32;
                 }
                 // self.clear_color = wgpu::Color {
                 //     r: position.x as f64 / self.size.width as f64,
@@ -371,8 +379,8 @@ impl Client {
                         ..
                     } => {
                             // self.temp = 1.0;
-                            self.xOff = 0;
-                            self.yOff = 0;
+                            self.xOff = 0.0;
+                            self.yOff = 0.0;
                             return true;
                         },
                     KeyboardInput {
@@ -430,8 +438,8 @@ impl Client {
                         ..
                     } => {
                             self.temp -= 1.0;
-                            if(self.temp < 0.0){
-                                self.temp = 0.0;
+                            if(self.temp < 1.0){
+                                self.temp = 1.0;
                             }
                             return true;
                         },
@@ -496,7 +504,7 @@ impl Client {
         
         self.wgpu_prog.dim_uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
             &[self.wgpu_config.size.width as f32,
-              time as f32, 
+              self.genPerFrame as f32,//time as f32, 
               self.wgpu_config.size.height as f32,
               self.temp,
               self.xOff as f32,
