@@ -46,10 +46,9 @@ fn getPixel(pix_coord: vec2<i32>) -> vec4<f32> {
 }
 
 fn is_black(color: vec4<f32> ) -> i32{
-  if(color.r == 1.0 && color.g==1.0 && color.b == 1.0){
+  if(color.r == 1.0){
     return 1;
   } else {
     return 0;
   }
 }
-

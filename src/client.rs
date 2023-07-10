@@ -438,8 +438,8 @@ impl Client {
                         ..
                     } => {
                             self.temp -= 1.0;
-                            if(self.temp < 1.0){
-                                self.temp = 1.0;
+                            if(self.temp < 0.0){
+                                self.temp = 0.0;
                             }
                             return true;
                         },
@@ -504,7 +504,7 @@ impl Client {
         
         self.wgpu_prog.dim_uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
             &[self.wgpu_config.size.width as f32,
-              self.genPerFrame as f32,//time as f32, 
+              time as f32, 
               self.wgpu_config.size.height as f32,
               self.temp,
               self.xOff as f32,

@@ -151,7 +151,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         if((floor(vlines*int_scaler*in.tex_coords.y))%int_scaler >= int_scaler - dim.temp){
             discard;
         }
-        if((floor(hlines*int_scaler*in.tex_coords.x))%int_scaler >= int_scaler - dim.temp){
+        if((floor(hlines*int_scaler*in.tex_coords.x))%int_scaler >= int_scaler - dim.temp && dim.time == 0.0){
             discard;
         }
     // // if(tex2Color.r == 0.0 && tex2Color.g==0.0 && tex2Color.b == 0.0){
