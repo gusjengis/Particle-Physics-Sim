@@ -459,3 +459,61 @@ impl BufferUniform {
     }
         
 }
+
+#[rustfmt::skip]
+pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
+    1.0, 0.0, 0.0, 0.0,
+    0.0, 1.0, 0.0, 0.0,
+    0.0, 0.0, 0.5, 0.0,
+    0.0, 0.0, 0.5, 1.0,
+);
+
+pub struct Camera {
+    pub eye: cgmath::Point3<f32>,
+    pub target: cgmath::Point3<f32>,
+    pub up: cgmath::Vector3<f32>,
+    pub aspect: f32,
+    pub fovy: f32,
+    pub znear: f32,
+    pub zfar: f32,
+    pub speed: f32,
+    pub view_proj: [[f32; 4]; 4],
+}
+
+impl Camera {
+    pub fn new(config: &WGPUConfig) -> Self {
+        use cgmath::SquareMatrix;
+        let mut returnVal =  Self {
+            eye: (0.0, 1.0, 2.0).into(),
+            // have it look at the origin
+            target: (0.0, 0.0, 0.0).into(),
+            // which way is "up"
+            up: cgmath::Vector3::unit_y(),
+            aspect: config.size.width as f32 / config.size.height as f32,
+            fovy: 85.0,
+            znear: 0.001,
+            zfar: 1131.0,
+            speed: 2.2,
+            view_proj: cgmath::Matrix4::identity().into(),
+        };
+
+        returnVal.update_view_proj(config);
+
+        return returnVal;
+        
+    }
+    pub fn build_view_projection_matrix(&mut self) -> cgmath::Matrix4<f32> {
+        let view = cgmath::Matrix4::look_at_rh(self.eye, self.target, self.up);
+        
+        let proj = cgmath::perspective(cgmath::Deg(self.fovy), self.aspect, self.znear, self.zfar);
+
+        
+        return OPENGL_TO_WGPU_MATRIX * proj * view;
+    }
+
+    pub fn update_view_proj(&mut self, config: &WGPUConfig) {
+        self.aspect = config.size.width as f32 / config.size.height as f32;
+        self.view_proj = self.build_view_projection_matrix().into();
+    }
+}
+ 

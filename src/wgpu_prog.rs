@@ -5,7 +5,10 @@ use crate::wgpu_structs::*;
 use crate::wgpu_config::*;
 
 use wgpu::util::DeviceExt;
-
+// Vertex { position: [-0.5 - 400.0, 0.0, 0.5 - 400.0], tex_coords: [0.0, 0.0,] },
+// Vertex { position: [-0.5 - 400.0, 0.0, -0.5 - 400.0], tex_coords: [0.0, 1.0,] },
+// Vertex { position: [0.5 - 400.0, 0.0, -0.5 - 400.0], tex_coords: [1.0, 1.0,] },
+// Vertex { position: [0.5 - 400.0, 0.0, 0.5 - 400.0], tex_coords: [1.0, 0.0,] }
 pub const VERTICES: &[Vertex] = &[
     Vertex { position: [-1.0, 1.0, 0.0], tex_coords: [0.0, 0.0,] },
     Vertex { position: [-1.0, -1.0, 0.0], tex_coords: [0.0, 1.0,] },
@@ -31,6 +34,8 @@ pub struct WGPUProg {
     pub index_buffer: wgpu::Buffer,
     pub clear_color: wgpu::Color,
     pub shader_prog: WGPUComputeProg,
+    pub cam: Camera,
+    pub cam_uniform: Uniform,
     shader: wgpu::ShaderModule
     // pub diffuse_bind_group: wgpu::BindGroup,
 }
@@ -82,6 +87,8 @@ impl WGPUProg {
         let dim_uniform = Uniform::new(&config.device, bytemuck::cast_slice(dim_contents), String::from("dimensions"), 2);
         // let cursor_uniform = Uniform::new(&config.device, bytemuck::cast_slice(cursor_contents), String::from("cursor"), 1);
         // let time_uniform = Uniform::new(&config.device, bytemuck::cast_slice(time_contents), String::from("time"), 3);
+        let cam = Camera::new(&config);
+        let cam_uniform = Uniform::new(&config.device, bytemuck::cast_slice(&[cam.view_proj]), String::from("dimensions"), 7);
         
         let tex1 = Texture::new(&config, include_bytes!("../golBase.png"), 0);
 
@@ -94,7 +101,7 @@ impl WGPUProg {
         let mut render_pipeline_layout =
         config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[&tex1.bind_group_layout, &dim_uniform.bind_group_layout, &tex2.bind_group_layout, &golTex.bind_group_layout],
+            bind_group_layouts: &[&tex1.bind_group_layout, &dim_uniform.bind_group_layout, &cam_uniform.bind_group_layout, &golTex.bind_group_layout ],
             push_constant_ranges: &[],
         });
         
@@ -164,6 +171,8 @@ impl WGPUProg {
             index_buffer,
             clear_color,
             shader_prog,
+            cam,
+            cam_uniform,
             shader
         }
     }
@@ -246,6 +255,7 @@ impl WGPUProg {
 pub struct WGPUComputeProg {
     pub tex1: Texture,
     pub tex2: Texture,
+    pub uniform: Uniform,
     pub compute_pipeline: wgpu::ComputePipeline,
     shader1: wgpu::ShaderModule,
     // shader2: wgpu::ShaderModule,
@@ -260,7 +270,8 @@ impl WGPUComputeProg {
 
         let mut tex1 = Texture::new(&config, include_bytes!("../golBase.png"), 0);
         let mut tex2 = Texture::new(&config, include_bytes!("../golBase.png"), 1);
-
+        let dim_contents = &[0 as f32, 0 as f32, 0 as f32, 0 as f32];
+        let uniform = Uniform::new(&config.device, bytemuck::cast_slice(dim_contents), String::from("dimensions"), 3);
         // let buffer1 = BufferUniform::new(&config.device, golBase, String::from("dimensions"), 5);
 
         // let buffer2 = Uniform::new(&config.device, golBase, String::from("dimensions"), 6);
@@ -284,7 +295,7 @@ impl WGPUComputeProg {
         //create pipeline layout
         let compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("gol compute"),
-            bind_group_layouts: &[&tex1.bind_group_layout, &tex2.bind_group_layout],
+            bind_group_layouts: &[&tex1.bind_group_layout, &tex2.bind_group_layout, &uniform.bind_group_layout],
             push_constant_ranges: &[]
         });
         //create pipeline
@@ -300,6 +311,7 @@ impl WGPUComputeProg {
         Self{
             tex1,
             tex2,
+            uniform,
             compute_pipeline,
             shader1: compute_shader1,
             // shader2: compute_shader2,
@@ -322,13 +334,13 @@ impl WGPUComputeProg {
         }
         let mut compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("gol compute"),
-            bind_group_layouts: &[&self.tex1.bind_group_layout, &self.tex2.bind_group_layout],
+            bind_group_layouts: &[&self.tex1.bind_group_layout, &self.tex2.bind_group_layout, &self.uniform.bind_group_layout],
             push_constant_ranges: &[]
         });
         if(!self.use1){
             compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("gol compute"),
-                bind_group_layouts: &[&self.tex2.bind_group_layout, &self.tex1.bind_group_layout],
+                bind_group_layouts: &[&self.tex2.bind_group_layout, &self.tex1.bind_group_layout, &self.uniform.bind_group_layout],
                 push_constant_ranges: &[]
             });
         }
@@ -366,6 +378,8 @@ impl WGPUComputeProg {
                 compute_pass.set_bind_group(0, &self.tex1.diffuse_bind_group, &[]);
                 compute_pass.set_bind_group(1, &self.tex2.diffuse_bind_group, &[]);
             }
+            compute_pass.set_bind_group(2, &self.uniform.bind_group, &[]);
+
             // Dispatch the compute shader
             compute_pass.dispatch_workgroups(self.tex1.dimensions.0/16, self.tex1.dimensions.1/16, 1);
 

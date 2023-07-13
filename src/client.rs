@@ -9,7 +9,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop, EventLoopProxy},
     window::WindowBuilder, dpi::PhysicalSize,
 };
-
+use cgmath::*;
 use winit_fullscreen;
 use winit_fullscreen::WindowFullScreen;
 
@@ -46,7 +46,7 @@ impl Client {
             .build(&event_loop)
             .unwrap();
         // window.set_cursor_visible(false);
-        window.set_title("Game of Life");
+        window.set_title("Perlin Noise");
 
         let canvas = windowInit::Canvas::new(window);
         let wgpu_config = WGPUConfig::new(&canvas).await;//pollster::block_on(
@@ -68,7 +68,7 @@ impl Client {
         let yOff = 0.0;
         let scale = 8.0;
         let middle = false;
-        let dark = 1.0;
+        let dark = 0.0;
         let mut client = Client {
             canvas,
             wgpu_config,
@@ -196,6 +196,7 @@ impl Client {
             }
         );
     }
+
     fn randomize(&mut self){
         for x in 0..self.wgpu_prog.shader_prog.tex1.dimensions.0-1 {
             for y in 0..self.wgpu_prog.shader_prog.tex1.dimensions.1-1 {
@@ -362,17 +363,65 @@ impl Client {
                                 return true;
                             },
                     KeyboardInput {
-                            virtual_keycode: Some(VirtualKeyCode::R),
-                            state: ElementState::Pressed,
-                            ..
-                        } => {
-                                // self.temp = 1.0;
-                                self.start_time = Local::now();
-                                self.wgpu_prog.shader_prog = WGPUComputeProg::new(&self.wgpu_config);
-                                self.toggle = false;
-                                self.generation = 0;
-                                return true;
-                            },
+                        virtual_keycode: Some(VirtualKeyCode::R),
+                        state: ElementState::Pressed,
+                        ..
+                    } => {
+                            // self.temp = 1.0;
+                            self.start_time = Local::now();
+                            self.wgpu_prog.shader_prog = WGPUComputeProg::new(&self.wgpu_config);
+                            self.toggle = false;
+                            self.generation = 0;
+                            return true;
+                        },
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::G), // forward
+                        state: ElementState::Pressed,
+                        ..
+                    } => {
+                            let camera = &mut self.wgpu_prog.cam;
+                            let forward = camera.target - camera.eye;
+                            let forward_norm = forward.normalize();
+                            camera.eye += forward_norm * camera.speed;
+                            return true;
+                        },
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::B), // backward
+                        state: ElementState::Pressed,
+                        ..
+                    } => {
+                            let camera = &mut self.wgpu_prog.cam;
+                            let forward = camera.target - camera.eye;
+                            let forward_norm = forward.normalize();
+                            camera.eye -= forward_norm * camera.speed;
+                            return true;
+                        },
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::V), // left
+                        state: ElementState::Pressed,
+                        ..
+                    } => {
+                            let camera = &mut self.wgpu_prog.cam;
+                            let forward = camera.target - camera.eye;
+                            let forward_norm = forward.normalize();
+                            let forward_mag = forward.magnitude();
+                            let right = forward_norm.cross(camera.up);
+                            camera.eye = camera.target - (forward - right * camera.speed).normalize() * forward_mag;
+                            return true;
+                        },
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::N), // right
+                        state: ElementState::Pressed,
+                        ..
+                    } => {
+                            let camera = &mut self.wgpu_prog.cam;
+                            let forward = camera.target - camera.eye;
+                            let forward_norm = forward.normalize();
+                            let forward_mag = forward.magnitude();
+                            let right = forward_norm.cross(camera.up);
+                            camera.eye = camera.target - (forward + right * camera.speed).normalize() * forward_mag;
+                            return true;
+                        },
                     KeyboardInput {
                         virtual_keycode: Some(VirtualKeyCode::H),
                         state: ElementState::Pressed,
@@ -513,6 +562,19 @@ impl Client {
               self.dark as f32]
         ));   
 
+        self.wgpu_prog.shader_prog.uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
+            &[  (Local::now().timestamp_millis() - self.start_time.timestamp_millis()) as f32, 
+                0 as f32, 
+                0 as f32, 
+                0 as f32
+            ]
+        ));   
+
+        self.wgpu_prog.cam.update_view_proj(&self.wgpu_config);
+        self.wgpu_prog.cam_uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
+            &[self.wgpu_prog.cam.view_proj]
+        )); 
+        
         // if(self.temp < 256.5){
         //     self.temp += 0.2;
         // } 
@@ -571,7 +633,7 @@ impl Client {
             render_pass.set_bind_group(0, &self.wgpu_prog.tex1.diffuse_bind_group, &[]);
             render_pass.set_bind_group(1, &self.wgpu_prog.dim_uniform.bind_group, &[]);
             // render_pass.set_bind_group(2, &self.wgpu_prog.time_uniform.bind_group, &[]);
-            render_pass.set_bind_group(2, &self.wgpu_prog.tex2.diffuse_bind_group, &[]);
+            // render_pass.set_bind_group(2, &self.wgpu_prog.tex2.diffuse_bind_group, &[]);
 
             let texSelector = self.wgpu_prog.shader_prog.use1;
             if(texSelector){
@@ -581,12 +643,13 @@ impl Client {
                 render_pass.set_bind_group(3, &self.wgpu_prog.shader_prog.tex2.diffuse_bind_group, &[]);
 
             }
+            render_pass.set_bind_group(2, &self.wgpu_prog.cam_uniform.bind_group, &[]);
 
             // render_pass.set_bind_group(1, &self.cursor_uniform.bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.wgpu_prog.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.wgpu_prog.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            render_pass.draw_indexed(0..6 as u32, 0, 0..1); // 3.
+            render_pass.draw_indexed(0..6 as u32, 0, 0..1); // 640000
 
             
         }

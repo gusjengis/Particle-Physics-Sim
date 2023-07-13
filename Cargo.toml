@@ -31,6 +31,7 @@ async-std = { version = "1.12", features = ["attributes", "tokio1"] }
 rand = "0.8.5"
 winit-fullscreen = "1.0.1"
 chrono = "0.4.24"
+cgmath = "0.18"
 getrandom = { version = "0.2.9", features = ["js"] }
 bytemuck = { version = "1.12", features = [ "derive" ] }
 # tauri = "1.4.1"
