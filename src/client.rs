@@ -649,7 +649,7 @@ impl Client {
             render_pass.set_vertex_buffer(0, self.wgpu_prog.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.wgpu_prog.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            render_pass.draw_indexed(0..6 as u32, 0, 0..1); // 640000
+            render_pass.draw_indexed(0..6 as u32, 0, 0..640000); // 640000
 
             
         }

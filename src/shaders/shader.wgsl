@@ -71,31 +71,31 @@ fn vs_main(
     let texAspect = f32(WH.x)/(f32(WH.y));
 
     let int_scaler = dim.scale;//floor(dim.height/f32(WH.y));
-    var atemp = int_scaler*f32(WH.y)/dim.height;
+    // var atemp = int_scaler*f32(WH.y)/dim.height;
     // atemp = floor(atemp*f32(WH.y)*int_scaler)/(f32(WH.y)*int_scaler);
-    var x = texAspect*in.position.x/aspect*atemp;
-    var y = in.position.y*atemp;
+    // var x = texAspect*in.position.x/aspect*atemp;
+    // var y = in.position.y*atemp;
 
-    x = floor((x*f32(WH.x))*int_scaler)/(f32(WH.x)*int_scaler) + 2.0*dim.xOff/dim.width;
-    y = floor((y*f32(WH.y))*int_scaler)/(f32(WH.y)*int_scaler) - 2.0*dim.yOff/dim.height;
+    // x = floor((x*f32(WH.x))*int_scaler)/(f32(WH.x)*int_scaler) + 2.0*dim.xOff/dim.width;
+    // y = floor((y*f32(WH.y))*int_scaler)/(f32(WH.y)*int_scaler) - 2.0*dim.yOff/dim.height;
 
-    // var position = in.position;
-    // let x = f32(instance) % 800.0;
-    // let z = floor(f32(instance) / 800.0);
-    // position.x += x;
-    // position.z += z;
+    var position = in.position;
+    let x = f32(instance) % 800.0;
+    let z = floor(f32(instance) / 800.0);
+    position.x += x;
+    position.z += z;
 
-    // let tex_coords = vec2((in.tex_coords.x/800.0)+x/800.0, (in.tex_coords.y/800.0)+z/800.0);
-    // let coord = vec2(tex_coords.x*f32(WH.x), tex_coords.y*f32(WH.y));
-    // let coord2 = vec2(tex_coords.x*f32(WH.x), tex_coords.y*f32(WH.y))/5.0;
-    // let coord3 = vec2(tex_coords.x*f32(WH.x), tex_coords.y*f32(WH.y))/29.0;
-    // let coord4 = vec2(tex_coords.x*f32(WH.x), tex_coords.y*f32(WH.y))/101.0;
-    // let noise = perlinFilter(coord)/8.0 + perlinFilter(coord2)/2.0 + perlinFilter(coord3) + perlinFilter(coord4)*4.0;
-    // position.y += noise * dim.temp;//perlInterpSamp(golTex, tex_coords).r * dim.temp;
+    let tex_coords = vec2((in.tex_coords.x/800.0)+x/800.0, (in.tex_coords.y/800.0)+z/800.0);
+    let coord = vec2(tex_coords.x*f32(WH.x), tex_coords.y*f32(WH.y));
+    let coord2 = vec2(tex_coords.x*f32(WH.x), tex_coords.y*f32(WH.y))/5.0;
+    let coord3 = vec2(tex_coords.x*f32(WH.x), tex_coords.y*f32(WH.y))/29.0;
+    let coord4 = vec2(tex_coords.x*f32(WH.x), tex_coords.y*f32(WH.y))/101.0;
+    let noise = perlinFilter(coord)/8.0 + perlinFilter(coord2)/2.0 + perlinFilter(coord3) + perlinFilter(coord4)*4.0;
+    position.y += noise * dim.temp;//perlInterpSamp(golTex, tex_coords).r * dim.temp;
 
     // y = floor(y*f32(WH.y))/f32(WH.y); 
-    out.clip_position = vec4(x, y, in.position.z, 1.0);//cam.view_proj * vec4<f32>(position, 1.0);//vec4(x, y, in.position.z, 1.0);
-    out.tex_coords = in.tex_coords;///800.0 + vec2(x/800.0, z/800.0);
+    out.clip_position = cam.view_proj * vec4<f32>(position, 1.0);//vec4(x, y, in.position.z, 1.0);
+    out.tex_coords = tex_coords;//800.0 + vec2(x/800.0, z/800.0);
     // out.color = in.color;
     
     return out;
@@ -208,9 +208,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let coord3 = vec2(in.tex_coords.x*f32(WH.x), in.tex_coords.y*f32(WH.y))/29.0;
     let coord4 = vec2(in.tex_coords.x*f32(WH.x), in.tex_coords.y*f32(WH.y))/101.0;
     let noise = perlinFilter(coord)/8.0 + perlinFilter(coord2)/2.0 + perlinFilter(coord3) + perlinFilter(coord4)*4.0;
-    // var rivers = (pow(abs(noise), 0.2));
-    // if(rivers < 0.1) { rivers = 0.0; } else { rivers = 1.0;}
-    var out = vec4(1.0, 1.0, 1.0, 1.0) * noise;//vec4(0.0, noise, 1.0 - rivers - noise, 1.0) ;//* (pow(abs(noise), 0.2));// * (noise);//perlinFilter(coord);// pow(abs(interpDots), 0.2);//* f32(neighbors)/8.0;// * f32(alive);
+    var rivers = (pow(abs(noise), 0.2));
+    if(rivers < 0.1) { rivers = 0.0; } else { rivers = 1.0;}
+    var out = vec4(0.0, noise, -noise, 1.0);// vec4(0.0, noise, 1.0 - rivers - noise, 1.0) ;//* (pow(abs(noise), 0.2));// * (noise);//perlinFilter(coord);// pow(abs(interpDots), 0.2);//* f32(neighbors)/8.0;// * f32(alive);
     // out = textureLoad(golTex, pixel_coord, 0).r * vec4(.0, 1.0, 1.0, 1.0);
     // var out = vec4(1.0, 1.0, 1.0, 1.0) * ((rand));
     // Fractal!!!
@@ -224,9 +224,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
 
     // Color Mapper
-        out.r = sin(out.r*2.0*3.14159);
-        out.g = -cos(out.g*2.0*3.14159);
-        out.b = -sin(out.b*2.0*3.14159);
+        // out.r = sin(out.r*2.0*3.14159);
+        // out.g = -cos(out.g*2.0*3.14159);
+        // out.b = -sin(out.b*2.0*3.14159);
 
     // Color Mapper 2
         // out.r = cos((out.r + 3.0/4.0)*1.0*3.14159/3.0);
@@ -237,7 +237,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     //     out = vec4(0.0, 0.0, 0.0, 1.0);
     // }
         
-    var color = textureLoad(golTex, pixel_coord, 0);//perlInterpSamp(golTex, in.tex_coords);
+    var color = perlInterpSamp(golTex, in.tex_coords);//perlInterpSamp(golTex, in.tex_coords);
     
     // Dark Mode/ Invert Colors
         if(dim.dark == 1.0){
