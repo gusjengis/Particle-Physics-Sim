@@ -1,5 +1,5 @@
 # Perlin Noise Generator
-This is based on my [Game-of-Life](https://pages.github.com/) repo. Implemented Perlin Noise from scratch, going to try to evolve this into a terrain generator. This version just generates 2D noise.
+This is based on my [Game-of-Life](https://pages.github.com/) repo. Implemented Perlin Noise from scratch, going to try to evolve this into a terrain generator.
 
 ![image4](https://github.com/gusjengis/Perlin-Noise-Generator/assets/107908374/76bcad69-6913-454c-b68e-c41ed940bff3)
 
