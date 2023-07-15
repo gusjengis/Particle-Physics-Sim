@@ -92,7 +92,7 @@ impl WGPUProg {
         // let cursor_uniform = Uniform::new(&config.device, bytemuck::cast_slice(cursor_contents), String::from("cursor"), 1);
         // let time_uniform = Uniform::new(&config.device, bytemuck::cast_slice(time_contents), String::from("time"), 3);
         let cam = Camera::new(&config);
-        let cam_uniform = Uniform::new(&config.device, bytemuck::cast_slice(&[cam.view_proj]), String::from("dimensions"), 7);
+        let cam_uniform = Uniform::new(&config.device, bytemuck::cast_slice(&[cam.view_proj,  cam.eye(), cam.target()]), String::from("dimensions"), 7);
         
         let tex1 = Texture::new(&config, include_bytes!("../golBase.png"), 0);
 

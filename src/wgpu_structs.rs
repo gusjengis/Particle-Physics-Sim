@@ -484,7 +484,7 @@ impl Camera {
     pub fn new(config: &WGPUConfig) -> Self {
         use cgmath::SquareMatrix;
         let mut returnVal =  Self {
-            eye: (0.0, 1.0, 2.0).into(),
+            eye: (0.0, 300.0, 540.0).into(),
             // have it look at the origin
             target: (0.0, 0.0, 0.0).into(),
             // which way is "up"
@@ -504,6 +504,7 @@ impl Camera {
     }
     pub fn build_view_projection_matrix(&mut self) -> cgmath::Matrix4<f32> {
         let view = cgmath::Matrix4::look_at_rh(self.eye, self.target, self.up);
+        // let view = cgmath::Matrix3::look_at_rh(self.eye, self.up);
         
         let proj = cgmath::perspective(cgmath::Deg(self.fovy), self.aspect, self.znear, self.zfar);
 
@@ -511,9 +512,28 @@ impl Camera {
         return OPENGL_TO_WGPU_MATRIX * proj * view;
     }
 
+    pub fn eye(&self) -> [[f32; 4]; 4] {
+        return [
+            [self.eye.x, self.eye.y, self.eye.z, 0.0],
+            [self.eye.x, self.eye.y, self.eye.z, 0.0],
+            [self.eye.x, self.eye.y, self.eye.z, 0.0],
+            [self.eye.x, self.eye.y, self.eye.z, 0.0],
+        ];
+    }
+
+    pub fn target(&self) -> [[f32; 4]; 4] {
+        return [
+            [self.target.x, self.target.y, self.target.z, 0.0],
+            [self.target.x, self.target.y, self.target.z, 0.0],
+            [self.target.x, self.target.y, self.target.z, 0.0],
+            [self.target.x, self.target.y, self.target.z, 0.0],
+        ];
+    }
+
     pub fn update_view_proj(&mut self, config: &WGPUConfig) {
         self.aspect = config.size.width as f32 / config.size.height as f32;
         self.view_proj = self.build_view_projection_matrix().into();
+        // self.rot_mat = 
     }
 }
  

@@ -14,6 +14,8 @@ struct Dimensions {
 
 struct Camera {
     view_proj: mat4x4<f32>,
+    eye: mat4x4<f32>,
+    focus: mat4x4<f32>,
 };
 
 // struct Timestamp {
@@ -23,6 +25,10 @@ struct Camera {
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) tex_coords: vec2<f32>,
+    @location(1) normal: vec3<f32>,
+    @location(2) vertex_pos: vec3<f32>,
+    // @location(3) pure_vertex_pos: vec3<f32>,
+
 };
 
 @group(0) @binding(0)
@@ -79,28 +85,68 @@ fn vs_main(
     // x = floor((x*f32(WH.x))*int_scaler)/(f32(WH.x)*int_scaler) + 2.0*dim.xOff/dim.width;
     // y = floor((y*f32(WH.y))*int_scaler)/(f32(WH.y)*int_scaler) - 2.0*dim.yOff/dim.height;
 
+    let detailLvl = sqrt(64000000.0);
+
     var position = in.position;
+    var position2 = position;
+    var position3 = position;
+
+    
+    position2.x += detailLvl/2.0;
+    position2.x = position2.x/abs(position2.x) * 0.5;
+    let tex2 = vec2(position2.x/abs(position2.x)*2.0, position2.z/abs(position2.z)*2.0);
+    position2.x -= detailLvl/2.0;
+    position3.z += detailLvl/2.0;
+    position3.z = position3.z/abs(position3.z) * 0.5;
+    let tex3 = vec2(position3.x/abs(position3.x)*2.0, position3.z/abs(position3.z)*2.0);
+    position3.z -= detailLvl/2.0;
+
+    
     let x = f32(instance) % 800.0;
     let z = floor(f32(instance) / 800.0);
     position.x += x;
     position.z += z;
+    position2.x += x;
+    position2.z += z;
+    position3.x += x;
+    position3.z += z;
 
-    let tex_coords = vec2((in.tex_coords.x/800.0)+x/800.0, (in.tex_coords.y/800.0)+z/800.0);
-    let coord = vec2(tex_coords.x*f32(WH.x), tex_coords.y*f32(WH.y));
-    let coord2 = vec2(tex_coords.x*f32(WH.x), tex_coords.y*f32(WH.y))/5.0;
-    let coord3 = vec2(tex_coords.x*f32(WH.x), tex_coords.y*f32(WH.y))/29.0;
-    let coord4 = vec2(tex_coords.x*f32(WH.x), tex_coords.y*f32(WH.y))/101.0;
-    let noise = perlinFilter(coord)/8.0 + perlinFilter(coord2)/2.0 + perlinFilter(coord3) + perlinFilter(coord4)*4.0;
+    let tex_coords =  vec2((in.tex_coords.x/detailLvl)+x/detailLvl, (in.tex_coords.y/detailLvl)+z/detailLvl);
+    let tex_coords2 = vec2((tex2.x/detailLvl)+x/detailLvl, (tex2.y/detailLvl)+z/detailLvl);
+    let tex_coords3 = vec2((tex3.x/detailLvl)+x/detailLvl, (tex3.y/detailLvl)+z/detailLvl);
+    let noise = vertNoise(tex_coords);
+    let noise2 = vertNoise(tex_coords2);
+    let noise3 = vertNoise(tex_coords3);
     position.y += noise * dim.temp;//perlInterpSamp(golTex, tex_coords).r * dim.temp;
-
+    position2.y += noise2 * dim.temp;//perlInterpSamp(golTex, tex_coords).r * dim.temp;
+    position3.y += noise3 * dim.temp;//perlInterpSamp(golTex, tex_coords).r * dim.temp;
+    if(position.y < 0.0){ position.y = 0.0;}// position.y += noise.y * dim.temp;}
+    if(position2.y < 0.0){ position2.y = 0.0;}// position2.y += noise2.y * dim.temp;}
+    if(position3.y < 0.0){ position3.y = 0.0;}// position3.y += noise3.y * dim.temp;}
     // y = floor(y*f32(WH.y))/f32(WH.y); 
-    out.clip_position = cam.view_proj * vec4<f32>(position, 1.0);//vec4(x, y, in.position.z, 1.0);
-    out.tex_coords = tex_coords;//800.0 + vec2(x/800.0, z/800.0);
+    out.normal = normalize(cross((position3 - position), (position2 - position)));
+    // out.pure_vertex_pos = position;
+    out.vertex_pos = position;
+    out.clip_position =  cam.view_proj * vec4<f32>(position, 1.0);//vec4(x, y, in.position.z, 1.0);
+    out.tex_coords = tex_coords;//detailLvl + vec2(x/detailLvl, z/detailLvl);
     // out.color = in.color;
     
     return out;
 }
 
+fn vertNoise(tex_coords: vec2<f32>) -> f32 {
+
+    let WH = textureDimensions(golTex);
+
+    let coord = vec2(tex_coords.x*f32(WH.x), tex_coords.y*f32(WH.y));
+    let coord2 = vec2(tex_coords.x*f32(WH.x), tex_coords.y*f32(WH.y))/5.0;
+    let coord3 = vec2(tex_coords.x*f32(WH.x), tex_coords.y*f32(WH.y))/29.0;
+    let coord4 = vec2(tex_coords.x*f32(WH.x), tex_coords.y*f32(WH.y))/101.0;
+    let noise = perlinFilter(coord)/8.0 + perlinFilter(coord2)/2.0 + perlinFilter(coord3) + perlinFilter(coord4)*4.0;
+    let noise2 = perlinFilter(coord)/32.0;// + perlinFilter(coord2)/2.0 + perlinFilter(coord3) + perlinFilter(coord4)*4.0;
+
+    return noise;//vec2(noise, noise2);
+}
 
 
 @fragment
@@ -207,10 +253,37 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let coord2 = vec2(in.tex_coords.x*f32(WH.x), in.tex_coords.y*f32(WH.y))/5.0;
     let coord3 = vec2(in.tex_coords.x*f32(WH.x), in.tex_coords.y*f32(WH.y))/29.0;
     let coord4 = vec2(in.tex_coords.x*f32(WH.x), in.tex_coords.y*f32(WH.y))/101.0;
-    let noise = perlinFilter(coord)/8.0 + perlinFilter(coord2)/2.0 + perlinFilter(coord3) + perlinFilter(coord4)*4.0;
+    let noise = perlinFilter(coord)/8.0 + perlinFilter(coord2)/2.5 + perlinFilter(coord3) + perlinFilter(coord4)*4.0;
     var rivers = (pow(abs(noise), 0.2));
     if(rivers < 0.1) { rivers = 0.0; } else { rivers = 1.0;}
-    var out = vec4(0.0, noise, -noise, 1.0);// vec4(0.0, noise, 1.0 - rivers - noise, 1.0) ;//* (pow(abs(noise), 0.2));// * (noise);//perlinFilter(coord);// pow(abs(interpDots), 0.2);//* f32(neighbors)/8.0;// * f32(alive);
+    var water = 0.0;
+    var snow = 0.0;
+    var grass = 0.0;
+    var sand = 0.0;
+    let snowThresh = 1.1 + perlinFilter(coord)/8.0;
+    let sandThresh = 0.1 + perlinFilter(coord)/8.0;
+    let lightPos = (vec3(dim.xOff, dim.temp*2.4, dim.yOff));
+    let lightDir = normalize(lightPos - in.vertex_pos);
+    let brightness = max(dot3D(in.normal, lightDir), 0.0);
+    let eye = vec3(cam.eye[0][0], cam.eye[0][1], cam.eye[0][2]);
+    let focus = in.vertex_pos;//vec3(cam.focus[0][0], cam.focus[0][1], cam.focus[0][2]);
+    let camDir =  normalize(focus - eye);
+    var refDir = normalize(reflect(lightDir, in.normal));
+    // refDir.x *= -1.0;
+    var specular = 0.0;//pow(clamp(dot3D(refDir, camDir), 0.0, 1.0), 1024.0);
+
+
+    let ambient = 0.01;
+    if(noise > snowThresh) { snow = 1.0; }
+    if(noise > 0.0 && noise < sandThresh ) { sand = 1.0; }
+    if(noise < snowThresh && noise > sandThresh) { grass = 1.0; }
+    // if(water > 0.0) { water = 0.0;}
+    if(noise < 0.0) { water = 1.0;}
+    // if(specular < 0.8) {specular = 0.0;} //vec4(in.normal.x, in.normal.y, in.normal.z, 1.0);//vec4(in.vertex_pos.xyz, 1.0)/800.0;//
+    var out = (brightness + specular + ambient) * vec4((snow + 0.72156862745*sand), (0.64705882352*sand + snow + grass*0.6) + 0.1*water, (sand*0.3294117647 + snow)* noise + water, 1.0);////50.0*vec4(brightness, 0.0, 0.0, 1.0);//(abs(brightness) + ambient) * vec4((snow + 0.72156862745*sand), (0.64705882352*sand + snow + grass*0.6) + 0.1*water, (sand*0.3294117647 + snow)* noise + water, 1.0);// vec4(0.0, noise, 1.0 - rivers - noise, 1.0) ;//* (pow(abs(noise), 0.2));// * (noise);//perlinFilter(coord);// pow(abs(interpDots), 0.2);//* f32(neighbors)/8.0;// * f32(alive);
+    if(length(abs(in.vertex_pos.xz - vec2(dim.xOff, dim.yOff))) < 3.0){
+        out = vec4(0.8, 0.0, 1.0, 1.0);
+    }
     // out = textureLoad(golTex, pixel_coord, 0).r * vec4(.0, 1.0, 1.0, 1.0);
     // var out = vec4(1.0, 1.0, 1.0, 1.0) * ((rand));
     // Fractal!!!
@@ -343,6 +416,18 @@ fn Lerp(t: f32, a1: f32, a2: f32) -> f32 {
 
 fn dot(v1: vec2<f32>, v2: vec2<f32>) -> f32 {
     return v1.x*v2.x + v1.y*v2.y;
+}
+
+fn dot3D(v1: vec3<f32>, v2: vec3<f32>) -> f32 {
+    return v1.x*v2.x + v1.y*v2.y + v1.z*v2.z;
+}
+
+fn cross3D(v1: vec3<f32>, v2: vec3<f32>) -> vec3<f32> {
+    return vec3(
+            v1.y*v2.z - v1.z*v2.y,
+            v1.z*v2.x - v1.x*v2.z,
+            v1.x*v2.y - v1.y*v2.x
+           );
 }
 
 fn squareImaginary(number: vec2<f32> ) -> vec2<f32> {

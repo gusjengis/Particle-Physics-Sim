@@ -36,7 +36,11 @@ pub struct Client {
     yOff: f32,
     scale: f32,
     middle: bool,
-    dark: f32
+    dark: f32,
+    W: bool,
+    A: bool,
+    S: bool,
+    D: bool,
 }
 
 impl Client {
@@ -56,7 +60,7 @@ impl Client {
         let start_time = Local::now();
         let bench_start_time = Local::now();
         let generations = 100.0;//256.1;
-        let temp = 1.0;//256.1;
+        let temp = 80.0;//256.1;
         let toggle = false;
         let prev_gen_time = Local::now();
         let cursor_pos = (0, 0);
@@ -69,6 +73,10 @@ impl Client {
         let scale = 8.0;
         let middle = false;
         let dark = 0.0;
+        let W = false;
+        let A = false;
+        let S = false;
+        let D = false;
         let mut client = Client {
             canvas,
             wgpu_config,
@@ -90,7 +98,11 @@ impl Client {
             yOff,
             scale,
             middle,
-            dark
+            dark,
+            W,
+            A,
+            S,
+            D,
         };
 
         //Start Event Loop
@@ -248,9 +260,9 @@ impl Client {
             let dim = &self.wgpu_prog.shader_prog.tex2.dimensions;
             let int_scale = self.scale as f32;//(windowDim.height/dim.1) as f32;
             
-            if(self.temp > int_scale - 1.0){
-                self.temp = int_scale - 1.0;
-            }
+            // if(self.temp > int_scale - 1.0){
+            //     self.temp = int_scale - 1.0;
+            // }
             self.wgpu_prog.dim_uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
                 &[self.wgpu_config.size.width as f32,
                   self.wgpu_config.size.width as f32, 
@@ -316,12 +328,12 @@ impl Client {
                     self.xOff /= ((2 as f32).powf(mY));
                     self.yOff /= ((2 as f32).powf(mY));
                 }
-                if(self.temp > self.scale as f32 - 1.0){
-                    self.temp = self.scale as f32 - 1.0;
-                }
-                if(self.temp < 0.0){
-                    self.temp = 0.0;
-                }
+                // if(self.temp > self.scale as f32 - 1.0){
+                //     self.temp = self.scale as f32 - 1.0;
+                // }
+                // if(self.temp < 0.0){
+                //     self.temp = 0.0;
+                // }
                 return true;
 
             },
@@ -455,19 +467,71 @@ impl Client {
                             return true;
                         },
                     KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::W),
+                        state: ElementState::Pressed,
+                        ..
+                    } => {
+                            self.W = true;
+                            return true;
+                        },
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::A),
+                        state: ElementState::Pressed,
+                        ..
+                    } => {
+                            self.A = true;
+                            return true;
+                        },
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::S),
+                        state: ElementState::Pressed,
+                        ..
+                    } => {
+                            self.S = true;
+                            return true;
+                        },
+                    KeyboardInput {
                         virtual_keycode: Some(VirtualKeyCode::D),
                         state: ElementState::Pressed,
                         ..
                     } => {
-                            if(self.dark == 0.0){
-                                self.dark = 1.0;
-                            } else {
-                                self.dark = 0.0
-                            }
+                            self.D = true;
                             return true;
                         },
                     KeyboardInput {
-                        virtual_keycode: Some(VirtualKeyCode::Down),
+                        virtual_keycode: Some(VirtualKeyCode::W),
+                        state: ElementState::Released,
+                        ..
+                    } => {
+                            self.W = false;
+                            return true;
+                        },
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::A),
+                        state: ElementState::Released,
+                        ..
+                    } => {
+                            self.A = false;
+                            return true;
+                        },
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::S),
+                        state: ElementState::Released,
+                        ..
+                    } => {
+                            self.S = false;
+                            return true;
+                        },
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::D),
+                        state: ElementState::Released,
+                        ..
+                    } => {
+                            self.D = false;
+                            return true;
+                        },
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::Up),
                         state: ElementState::Pressed,
                         ..
                     } => {
@@ -476,13 +540,13 @@ impl Client {
                             // let int_scale = self.scale as f32;//(windowDim.height/dim.1) as f32;
                             self.temp += 1.0;
                             
-                            if(self.temp > self.scale as f32 - 1.0){
-                                self.temp = self.scale as f32 - 1.0;
-                            }
+                            // if(self.temp > self.scale as f32 - 1.0){
+                            //     self.temp = self.scale as f32 - 1.0;
+                            // }
                             return true;
                         },
                     KeyboardInput {
-                        virtual_keycode: Some(VirtualKeyCode::Up),
+                        virtual_keycode: Some(VirtualKeyCode::Down),
                         state: ElementState::Pressed,
                         ..
                     } => {
@@ -543,10 +607,13 @@ impl Client {
         //     b: rng.gen::<f64>()/1.0,
         //     a: 1.0,
         // };
+        let move_speed = self.wgpu_prog.cam.speed;
+        if(self.W){ self.yOff -= move_speed; }
+        if(self.A){ self.xOff -= move_speed; }
+        if(self.S){ self.yOff += move_speed; }
+        if(self.D){ self.xOff += move_speed; }
         
-        
-        
-        let mut time = 1;//Local::now().timestamp_millis() - self.start_time.timestamp_millis();
+        let mut time = 1;//Local::noD().timestamp_millis() - self.start_time.timestamp_millis();
         if(!self.HL){
             time = 0;
         }
@@ -572,7 +639,7 @@ impl Client {
 
         self.wgpu_prog.cam.update_view_proj(&self.wgpu_config);
         self.wgpu_prog.cam_uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
-            &[self.wgpu_prog.cam.view_proj]
+            &[self.wgpu_prog.cam.view_proj, self.wgpu_prog.cam.eye(), self.wgpu_prog.cam.target()]
         )); 
         
         // if(self.temp < 256.5){
