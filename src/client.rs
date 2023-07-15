@@ -42,6 +42,7 @@ pub struct Client {
     A: bool,
     S: bool,
     D: bool,
+    init: bool,
 }
 
 impl Client {
@@ -61,7 +62,7 @@ impl Client {
         let start_time = Local::now();
         let bench_start_time = Local::now();
         let generations = 100.0;//256.1;
-        let temp = 80.0;//256.1;
+        let temp = 34.0;//256.1;
         let toggle = false;
         let prev_gen_time = Local::now();
         let cursor_pos = (0, 0);
@@ -78,6 +79,7 @@ impl Client {
         let A = false;
         let S = false;
         let D = false;
+        let init = false;
         let mut client = Client {
             canvas,
             wgpu_config,
@@ -104,10 +106,12 @@ impl Client {
             A,
             S,
             D,
+            init,
         };
 
         //Start Event Loop
         // client.randomize();
+        client.computeGOLGen(true);
         
 
         event_loop.run(move |event, _, control_flow| match event { 
@@ -221,19 +225,19 @@ impl Client {
         }
     }
 
-    pub fn computeGOLGen(&mut self){
+    pub fn computeGOLGen(&mut self, force: bool){
         // while(true){
             // println! ("test");
             // println! ("{}", self.toggle);
 
-            if(self.toggle && Local::now().timestamp_millis() - self.prev_gen_time.timestamp_millis() >= self.generations as i64){
+            if(self.toggle && Local::now().timestamp_millis() - self.prev_gen_time.timestamp_millis() >= self.generations as i64 || force){
                 for i in 0..self.genPerFrame {
                     // let start = Local::now();
 
-                    self.wgpu_prog.shader_prog.compute(&self.wgpu_config);
-                    self.wgpu_prog.swap(&self.wgpu_config);
-                    self.prev_gen_time = Local::now();
-                    self.generation += 1;
+                        self.wgpu_prog.shader_prog.compute(&self.wgpu_config);
+                        self.wgpu_prog.swap(&self.wgpu_config);
+                        self.prev_gen_time = Local::now();
+                        self.generation += 1;
                     // println! ("{}", ((Local::now().timestamp_micros() - start.timestamp_micros()) as f32/1000.0));
 
                     // println! ("{}", 1000.0/((Local::now().timestamp_micros() - start.timestamp_micros()) as f32/1000.0));
@@ -647,6 +651,7 @@ impl Client {
             &[self.wgpu_prog.cam.view_proj, self.wgpu_prog.cam.eye(), self.wgpu_prog.cam.target()]
         )); 
         
+        
         // if(self.temp < 256.5){
         //     self.temp += 0.2;
         // } 
@@ -671,7 +676,7 @@ impl Client {
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         
-            self.computeGOLGen();
+            self.computeGOLGen(false);
             
         
 
@@ -706,6 +711,8 @@ impl Client {
             });
 
             self.wgpu_prog.shader_prog.tex1.setBinding(&self.wgpu_config, 5, false);
+
+            
         
             // NEW!
             render_pass.set_pipeline(&self.wgpu_prog.render_pipeline); // 2.
@@ -752,6 +759,7 @@ impl Client {
                 println!("Generations/s: {}, Total Generations: {}", (self.generation - self.prevGen) as f32/time_since, self.generation);
                 println!("Generations/Update: {}, Time Between Updates(ms): {}", self.genPerFrame as f32, self.generations);
                 println!("Scale: {}, (xOff, yOff): ({}, {})", self.scale as f32, self.xOff, self.yOff);
+                println!("Height: {}", self.temp as f32);
                 self.prevGen = self.generation;
                 self.bench_start_time = Local::now();
                 
