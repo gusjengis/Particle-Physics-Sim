@@ -13,7 +13,7 @@ Screenshots from the lastest update (Below). Zoomed in on a smaller section of t
 
 ![image3](https://github.com/gusjengis/Perlin-Noise-Generator/assets/107908374/f6934c15-c8a9-451e-95e1-186a1a982e3e)
 
-The same 4 Layers of Perlin Noise from the 2D Screenshots used to offset the height of flat plane. Positive heights are green, negative heights are blue.
+The same 4 Layers of Perlin Noise from the 2D Screenshots used to offset the height of a flat plane. Positive heights are green, negative heights are blue.
 
 ![image1](https://github.com/gusjengis/Perlin-Noise-Generator/assets/107908374/6f30f5c5-1703-4b3d-b273-b0d28ae84466)
 
