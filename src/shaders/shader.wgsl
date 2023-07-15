@@ -117,16 +117,20 @@ fn vs_main(
     let noise = vertNoise(tex_coords);
     let noise2 = vertNoise(tex_coords2);
     let noise3 = vertNoise(tex_coords3);
-    position.y += noise * dim.temp;//perlInterpSamp(golTex, tex_coords).r * dim.temp;
-    position2.y += noise2 * dim.temp;//perlInterpSamp(golTex, tex_coords).r * dim.temp;
-    position3.y += noise3 * dim.temp;//perlInterpSamp(golTex, tex_coords).r * dim.temp;
-    if(position.y < 0.0){ position.y = 0.0;}// position.y += noise.y * dim.temp;}
-    if(position2.y < 0.0){ position2.y = 0.0;}// position2.y += noise2.y * dim.temp;}
-    if(position3.y < 0.0){ position3.y = 0.0;}// position3.y += noise3.y * dim.temp;}
+    position.y += noise.x * dim.temp;//perlInterpSamp(golTex, tex_coords).r * dim.temp;
+    position2.y += noise2.x * dim.temp;//perlInterpSamp(golTex, tex_coords).r * dim.temp;
+    position3.y += noise3.x * dim.temp;//perlInterpSamp(golTex, tex_coords).r * dim.temp;
+    if(position.y < 0.0){ position.y = 0.0; position.y += noise.y * dim.temp;}
+    if(position2.y < 0.0){ position2.y = 0.0; position2.y += noise2.y * dim.temp;}
+    if(position3.y < 0.0){ position3.y = 0.0; position3.y += noise3.y * dim.temp;}
     // y = floor(y*f32(WH.y))/f32(WH.y); 
     out.normal = normalize(cross((position3 - position), (position2 - position)));
     // out.pure_vertex_pos = position;
     out.vertex_pos = position;
+    // position.y = 1.0 - abs(position.x) - abs(position.z);
+    // position.x = 400.0*sin(position.x*3.141592*2.0/800.0);
+    // position.z = 400.0*sin(position.z*3.141592*2.0/800.0);
+
     out.clip_position =  cam.view_proj * vec4<f32>(position, 1.0);//vec4(x, y, in.position.z, 1.0);
     out.tex_coords = tex_coords;//detailLvl + vec2(x/detailLvl, z/detailLvl);
     // out.color = in.color;
@@ -134,7 +138,7 @@ fn vs_main(
     return out;
 }
 
-fn vertNoise(tex_coords: vec2<f32>) -> f32 {
+fn vertNoise(tex_coords: vec2<f32>) -> vec2<f32> {
 
     let WH = textureDimensions(golTex);
 
@@ -145,7 +149,7 @@ fn vertNoise(tex_coords: vec2<f32>) -> f32 {
     let noise = perlinFilter(coord)/8.0 + perlinFilter(coord2)/2.0 + perlinFilter(coord3) + perlinFilter(coord4)*4.0;
     let noise2 = perlinFilter(coord)/32.0;// + perlinFilter(coord2)/2.0 + perlinFilter(coord3) + perlinFilter(coord4)*4.0;
 
-    return noise;//vec2(noise, noise2);
+    return vec2(noise, noise2);
 }
 
 

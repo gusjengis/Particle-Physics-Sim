@@ -40,6 +40,7 @@ pub struct WGPUProg {
     pub shader_prog: WGPUComputeProg,
     pub cam: Camera,
     pub cam_uniform: Uniform,
+    pub depth_buffer: DepthBuffer,
     shader: wgpu::ShaderModule
     // pub diffuse_bind_group: wgpu::BindGroup,
 }
@@ -99,7 +100,7 @@ impl WGPUProg {
         // let tex2 = Texture::new(&config, image, 4);
         let tex2 = Texture::new(&config, include_bytes!("../golBase.png"), 3);
 
-       
+        let depth_buffer = DepthBuffer::new(&config.device, &config.config, "depth_texture");
         // let buffer2 = Uniform::new(&config.device, golBase, String::from("dimensions"), 6);
 
         let mut render_pipeline_layout =
@@ -138,7 +139,13 @@ impl WGPUProg {
                 // Requires Features::CONSERVATIVE_RASTERIZATION
                 conservative: false,
             },
-            depth_stencil: None, // 1.
+            depth_stencil: Some(wgpu::DepthStencilState {
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                format: DepthBuffer::DEPTH_FORMAT,
+                stencil: wgpu::StencilState::default(), // 2.
+                bias: wgpu::DepthBiasState::default(),
+              }), // 1.
             multisample: wgpu::MultisampleState {
                 count: 1, // 2.
                 mask: !0, // 3.
@@ -177,6 +184,7 @@ impl WGPUProg {
             shader_prog,
             cam,
             cam_uniform,
+            depth_buffer,
             shader
         }
     }

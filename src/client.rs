@@ -1,4 +1,5 @@
 use crate::wgpu_prog::WGPUComputeProg;
+use crate::wgpu_structs::DepthBuffer;
 use crate::windowInit;
 use crate::wgpu_config::*;
 use crate::wgpu_prog;
@@ -273,6 +274,8 @@ impl Client {
                   self.scale as f32,  
                   self.dark as f32]
             ));
+
+            self.wgpu_prog.depth_buffer = DepthBuffer::new(&self.wgpu_config.device, &self.wgpu_config.config, "depth_texture");
         }
     }
 
@@ -607,12 +610,14 @@ impl Client {
         //     b: rng.gen::<f64>()/1.0,
         //     a: 1.0,
         // };
-        let move_speed = self.wgpu_prog.cam.speed;
+        let move_speed = 2.5;
         if(self.W){ self.yOff -= move_speed; }
         if(self.A){ self.xOff -= move_speed; }
         if(self.S){ self.yOff += move_speed; }
         if(self.D){ self.xOff += move_speed; }
         
+        self.xOff = self.xOff % 400.0;
+        self.yOff = self.yOff % 400.0;
         let mut time = 1;//Local::noD().timestamp_millis() - self.start_time.timestamp_millis();
         if(!self.HL){
             time = 0;
@@ -690,7 +695,14 @@ impl Client {
                         }
                     })
                 ],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.wgpu_prog.depth_buffer.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
             });
 
             self.wgpu_prog.shader_prog.tex1.setBinding(&self.wgpu_config, 5, false);

@@ -74,10 +74,36 @@ impl WGPUConfig {
                 features: wgpu::Features::empty(),
                 // WebGL doesn't support all of wgpu's features, so if
                 // we're building for the web we'll have to disable some.
-                limits: if cfg!(target_arch = "wasm32") {
-                    wgpu::Limits::downlevel_defaults()
-                } else {
-                    wgpu::Limits::downlevel_defaults()
+                limits: wgpu::Limits { //downlevel_defaults()
+                    max_texture_dimension_1d: 2048,
+                    max_texture_dimension_2d: 4096,
+                    max_texture_dimension_3d: 256,
+                    max_texture_array_layers: 256,
+                    max_bind_groups: 4,
+                    max_bindings_per_bind_group: 640,
+                    max_dynamic_uniform_buffers_per_pipeline_layout: 8,
+                    max_dynamic_storage_buffers_per_pipeline_layout: 4,
+                    max_sampled_textures_per_shader_stage: 16,
+                    max_samplers_per_shader_stage: 16,
+                    max_storage_buffers_per_shader_stage: 4,
+                    max_storage_textures_per_shader_stage: 4,
+                    max_uniform_buffers_per_shader_stage: 12,
+                    max_uniform_buffer_binding_size: 16 << 10,
+                    max_storage_buffer_binding_size: 128 << 20,
+                    max_vertex_buffers: 8,
+                    max_vertex_attributes: 16,
+                    max_vertex_buffer_array_stride: 2048,
+                    max_push_constant_size: 0,
+                    min_uniform_buffer_offset_alignment: 256,
+                    min_storage_buffer_offset_alignment: 256,
+                    max_inter_stage_shader_components: 60,
+                    max_compute_workgroup_storage_size: 16352,
+                    max_compute_invocations_per_workgroup: 256,
+                    max_compute_workgroup_size_x: 256,
+                    max_compute_workgroup_size_y: 256,
+                    max_compute_workgroup_size_z: 64,
+                    max_compute_workgroups_per_dimension: 65535,
+                    max_buffer_size: 1 << 28,
                 },
                 label: None,
             },
