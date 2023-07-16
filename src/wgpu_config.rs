@@ -76,7 +76,7 @@ impl WGPUConfig {
                 // we're building for the web we'll have to disable some.
                 limits: wgpu::Limits { //downlevel_defaults()
                     max_texture_dimension_1d: 2048,
-                    max_texture_dimension_2d: 4096,
+                    max_texture_dimension_2d: 8192,
                     max_texture_dimension_3d: 256,
                     max_texture_array_layers: 256,
                     max_bind_groups: 4,

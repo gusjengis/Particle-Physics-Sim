@@ -5,6 +5,7 @@ use crate::wgpu_config::*;
 use crate::wgpu_prog;
 
 use crate::wgpu_prog::WGPUProg;
+use cgmath::Angle;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop, EventLoopProxy},
@@ -42,6 +43,10 @@ pub struct Client {
     A: bool,
     S: bool,
     D: bool,
+    G: bool,
+    V: bool,
+    B: bool,
+    N: bool,
     init: bool,
 }
 
@@ -79,6 +84,10 @@ impl Client {
         let A = false;
         let S = false;
         let D = false;
+        let G = false;
+        let V = false;
+        let B = false;
+        let N = false;
         let init = false;
         let mut client = Client {
             canvas,
@@ -106,6 +115,10 @@ impl Client {
             A,
             S,
             D,
+            G,
+            V,
+            B,
+            N,
             init,
         };
 
@@ -398,6 +411,7 @@ impl Client {
                         state: ElementState::Pressed,
                         ..
                     } => {
+                            // self.G = true;
                             let camera = &mut self.wgpu_prog.cam;
                             let forward = camera.target - camera.eye;
                             let forward_norm = forward.normalize();
@@ -614,11 +628,16 @@ impl Client {
         //     b: rng.gen::<f64>()/1.0,
         //     a: 1.0,
         // };
-        let move_speed = 2.5;
-        if(self.W){ self.yOff -= move_speed; }
-        if(self.A){ self.xOff -= move_speed; }
-        if(self.S){ self.yOff += move_speed; }
-        if(self.D){ self.xOff += move_speed; }
+        let camera = &self.wgpu_prog.cam;
+        let forward = camera.target - camera.eye;
+        let xzMag = (forward.x.powf(2.0) + forward.z.powf(2.0)).powf(0.5);
+        let xzNorm = (forward.x / xzMag, forward.z / xzMag);
+        let angle = xzNorm.1.atan2(xzNorm.0);
+        let move_speed = 3.5;
+        if(self.A){ self.xOff += angle.sin(); self.yOff -= angle.cos(); }
+        if(self.S){ self.xOff -= angle.cos(); self.yOff -= angle.sin(); }
+        if(self.D){ self.xOff -= angle.sin(); self.yOff += angle.cos(); }
+        if(self.W){ self.xOff += angle.cos(); self.yOff += angle.sin();}
         
         self.xOff = self.xOff % 400.0;
         self.yOff = self.yOff % 400.0;
@@ -736,8 +755,6 @@ impl Client {
             render_pass.set_index_buffer(self.wgpu_prog.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
             render_pass.draw_indexed(0..6 as u32, 0, 0..640000); // 640000
-
-            
         }
     
         // submit will accept anything that implements IntoIter
