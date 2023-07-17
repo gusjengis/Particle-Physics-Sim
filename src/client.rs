@@ -633,11 +633,11 @@ impl Client {
         let xzMag = (forward.x.powf(2.0) + forward.z.powf(2.0)).powf(0.5);
         let xzNorm = (forward.x / xzMag, forward.z / xzMag);
         let angle = xzNorm.1.atan2(xzNorm.0);
-        let move_speed = 3.5;
-        if(self.A){ self.xOff += angle.sin(); self.yOff -= angle.cos(); }
-        if(self.S){ self.xOff -= angle.cos(); self.yOff -= angle.sin(); }
-        if(self.D){ self.xOff -= angle.sin(); self.yOff += angle.cos(); }
-        if(self.W){ self.xOff += angle.cos(); self.yOff += angle.sin();}
+        let move_speed = 5.0;
+        if(self.A){ self.xOff += move_speed * angle.sin(); self.yOff -= move_speed * angle.cos(); }
+        if(self.S){ self.xOff -= move_speed * angle.cos(); self.yOff -= move_speed * angle.sin(); }
+        if(self.D){ self.xOff -= move_speed * angle.sin(); self.yOff += move_speed * angle.cos(); }
+        if(self.W){ self.xOff += move_speed * angle.cos(); self.yOff += move_speed * angle.sin();}
         
         self.xOff = self.xOff % 400.0;
         self.yOff = self.yOff % 400.0;
