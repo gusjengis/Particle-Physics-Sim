@@ -266,7 +266,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var sand = 0.0;
     let snowThresh = 1.1 + perlinFilter(coord)/8.0;
     let sandThresh = 0.1 + perlinFilter(coord)/8.0;
-    let lightPos = (vec3(dim.xOff, dim.temp*2.4, dim.yOff));
+    let lightPos = (vec3(dim.xOff, dim.temp*2.6, dim.yOff));
     let lightDir = normalize(lightPos - in.vertex_pos);
     let brightness = max(dot3D(in.normal, lightDir), 0.0);
     let eye = vec3(cam.eye[0][0], cam.eye[0][1], cam.eye[0][2]);

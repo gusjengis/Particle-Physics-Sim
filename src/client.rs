@@ -639,8 +639,10 @@ impl Client {
         if(self.D){ self.xOff -= move_speed * angle.sin(); self.yOff += move_speed * angle.cos(); }
         if(self.W){ self.xOff += move_speed * angle.cos(); self.yOff += move_speed * angle.sin();}
         
-        self.xOff = self.xOff % 400.0;
-        self.yOff = self.yOff % 400.0;
+        if(self.xOff < -400.0) { self.xOff = 400.0;}
+        if(self.xOff > 400.0) { self.xOff = -400.0;}
+        if(self.yOff < -400.0) { self.yOff = 400.0;}
+        if(self.yOff > 400.0) { self.yOff = -400.0;}
         let mut time = 1;//Local::noD().timestamp_millis() - self.start_time.timestamp_millis();
         if(!self.HL){
             time = 0;
