@@ -9,20 +9,67 @@ use wgpu::util::DeviceExt;
 // Vertex { position: [-0.5 - 400.0, 0.0, -0.5 - 400.0], tex_coords: [0.0, 1.0,] },
 // Vertex { position: [0.5 - 400.0, 0.0, -0.5 - 400.0], tex_coords: [1.0, 1.0,] },
 // Vertex { position: [0.5 - 400.0, 0.0, 0.5 - 400.0], tex_coords: [1.0, 0.0,] }
+// pub const VERTICES: &[Vertex] = &[
+// // Vertex { position: [-0.5 - 400.0, 0.0, 0.5 - 400.0], tex_coords: [0.0, 0.0,] },
+// // Vertex { position: [-0.5 - 400.0, 0.0, -0.5 - 400.0], tex_coords: [0.0, 1.0,] },
+// // Vertex { position: [0.5 - 400.0, 0.0, -0.5 - 400.0], tex_coords: [1.0, 1.0,] },
+// // Vertex { position: [0.5 - 400.0, 0.0, 0.5 - 400.0], tex_coords: [1.0, 0.0,] }
+//     Vertex { position: [-0.5 - 400.0, 0.0, -0.5 - 400.0], tex_coords: [0.0, 0.0,] },
+//     Vertex { position: [-0.5 - 400.0, 0.0, 0.5 - 400.0], tex_coords: [0.0, 1.0,] },
+//     Vertex { position: [0.5 - 400.0, 0.0, 0.5 - 400.0], tex_coords: [1.0, 1.0,] },
+//     Vertex { position: [0.5 - 400.0, 0.0, -0.5 - 400.0], tex_coords: [1.0, 0.0,] }
+// ];
+
 pub const VERTICES: &[Vertex] = &[
 // Vertex { position: [-0.5 - 400.0, 0.0, 0.5 - 400.0], tex_coords: [0.0, 0.0,] },
 // Vertex { position: [-0.5 - 400.0, 0.0, -0.5 - 400.0], tex_coords: [0.0, 1.0,] },
 // Vertex { position: [0.5 - 400.0, 0.0, -0.5 - 400.0], tex_coords: [1.0, 1.0,] },
 // Vertex { position: [0.5 - 400.0, 0.0, 0.5 - 400.0], tex_coords: [1.0, 0.0,] }
-    Vertex { position: [-0.5 - 400.0, 0.0, -0.5 - 400.0], tex_coords: [0.0, 0.0,] },
-    Vertex { position: [-0.5 - 400.0, 0.0, 0.5 - 400.0], tex_coords: [0.0, 1.0,] },
-    Vertex { position: [0.5 - 400.0, 0.0, 0.5 - 400.0], tex_coords: [1.0, 1.0,] },
-    Vertex { position: [0.5 - 400.0, 0.0, -0.5 - 400.0], tex_coords: [1.0, 0.0,] }
+    Vertex { position: [1.0, 1.0, 1.0], tex_coords: [0.0, 0.0,], normal: [0.0, 0.0, 1.0] }, // 0 - Back Top Right
+    Vertex { position: [1.0, -1.0, 1.0], tex_coords: [0.0, 0.0,], normal: [0.0, 0.0, 1.0] }, // 1 - Back Bottom Right
+    Vertex { position: [-1.0, -1.0, 1.0], tex_coords: [0.0, 0.0,], normal: [0.0, 0.0, 1.0] }, // 2 - Back Bottom Left
+    Vertex { position: [-1.0, 1.0, 1.0], tex_coords: [0.0, 0.0,], normal: [0.0, 0.0, 1.0] }, // 3 - Back Top Left
+    Vertex { position: [1.0, 1.0, -1.0], tex_coords: [0.0, 0.0,], normal: [0.0, 0.0, -1.0] }, // 4 - Front Top Right
+    Vertex { position: [-1.0, 1.0, -1.0], tex_coords: [0.0, 0.0,], normal: [0.0, 0.0, -1.0] }, // 5 - Front Top Left
+    Vertex { position: [-1.0, -1.0, -1.0], tex_coords: [0.0, 0.0,], normal: [0.0, 0.0, -1.0]  }, // 6 - Front Bottom Left
+    Vertex { position: [1.0, -1.0, -1.0], tex_coords: [0.0, 0.0,], normal: [0.0, 0.0, -1.0]  }, // 7 - Front Bottom Right
+
+    Vertex { position: [1.0, 1.0, 1.0], tex_coords: [0.0, 0.0,], normal: [0.0, 1.0, 0.0] }, // 8 - Back Top Right
+    Vertex { position: [1.0, -1.0, 1.0], tex_coords: [0.0, 0.0,], normal: [0.0, 1.0, 0.0] }, // 9 - Back Bottom Right
+    Vertex { position: [-1.0, -1.0, 1.0], tex_coords: [0.0, 0.0,], normal: [0.0, -1.0, 0.0] }, // 10 - Back Bottom Left
+    Vertex { position: [-1.0, 1.0, 1.0], tex_coords: [0.0, 0.0,], normal: [0.0, -1.0, 0.0] }, // 11 - Back Top Left
+    Vertex { position: [1.0, 1.0, -1.0], tex_coords: [0.0, 0.0,], normal: [0.0, 1.0, 0.0] }, // 12 - Front Top Right
+    Vertex { position: [-1.0, 1.0, -1.0], tex_coords: [0.0, 0.0,], normal: [0.0, 1.0, 0.0] }, // 13 - Front Top Left
+    Vertex { position: [-1.0, -1.0, -1.0], tex_coords: [0.0, 0.0,], normal: [0.0, -1.0, 0.0]  }, // 14 - Front Bottom Left
+    Vertex { position: [1.0, -1.0, -1.0], tex_coords: [0.0, 0.0,], normal: [0.0, -1.0, 0.0]  }, // 15 - Front Bottom Right
+
+    Vertex { position: [1.0, 1.0, 1.0], tex_coords: [0.0, 0.0,], normal: [1.0, 0.0, 0.0] }, // 16 - Back Top Right
+    Vertex { position: [1.0, -1.0, 1.0], tex_coords: [0.0, 0.0,], normal: [1.0, 0.0, 0.0] }, // 17 - Back Bottom Right
+    Vertex { position: [-1.0, -1.0, 1.0], tex_coords: [0.0, 0.0,], normal: [-1.0, 0.0, 0.0] }, // 18 - Back Bottom Left
+    Vertex { position: [-1.0, 1.0, 1.0], tex_coords: [0.0, 0.0,], normal: [-1.0, 0.0, 0.0] }, // 19 - Back Top Left
+    Vertex { position: [1.0, 1.0, -1.0], tex_coords: [0.0, 0.0,], normal: [1.0, 0.0, 0.0] }, // 20 - Front Top Right
+    Vertex { position: [-1.0, 1.0, -1.0], tex_coords: [0.0, 0.0,], normal: [-1.0, 0.0, 0.0] }, // 21 - Front Top Left
+    Vertex { position: [-1.0, -1.0, -1.0], tex_coords: [0.0, 0.0,], normal: [-1.0, 0.0, 0.0]  }, // 22 - Front Bottom Left
+    Vertex { position: [1.0, -1.0, -1.0], tex_coords: [0.0, 0.0,], normal: [1.0, 0.0, 0.0]  }, // 23 - Front Bottom Right
+    
 ];
 
+// 1, 2, 0,
+// 0, 2, 3,
 pub const INDICES: &[u16] = &[
-    1, 2, 0,
-    0, 2, 3,
+    4, 5, 6,
+    6, 7, 4,
+    21, 19, 18,
+    18, 22, 21,
+    8, 11, 13,
+    13, 12, 8,
+    16, 20, 23,
+    23, 17, 16,
+    15, 14, 10,
+    10, 9, 15,
+    0, 1, 2,
+    2, 3, 0
+    // 0, 2, 3,
     // 0, 2, 1,
     // 2, 4, 1,
     // 4, 3, 1,
@@ -62,20 +109,20 @@ impl WGPUProg {
             b: 0.0,//1.0,
             a: 1.0,
         };
-        let vertices = &[
-            Vertex { position: [0.0, 0.5, 0.0], tex_coords: [1.0, 0.0] },
-            Vertex { position: [0.433, 0.25, 0.0], tex_coords: [0.5, 0.0] },
-            Vertex { position: [-0.433, 0.25, 0.0], tex_coords: [0.5, 0.5] },
-            Vertex { position: [0.433, -0.25, 0.0], tex_coords: [0.0, 0.0] },
-            Vertex { position: [-0.433, -0.25, 0.0], tex_coords: [0.0, 1.0] },
-            Vertex { position: [0.0, -0.5, 0.0], tex_coords: [0.0, 0.5] },
-            // Vertex { position: [0.0, 0.5, 0.0], color: [1.0, 0.0, 0.0] },
-            // Vertex { position: [0.433, 0.25, 0.0], color: [0.5, 0.0, 0.5] },
-            // Vertex { position: [-0.433, 0.25, 0.0], color: [0.5, 0.5, 0.0] },
-            // Vertex { position: [0.433, -0.25, 0.0], color: [0.0, 0.0, 1.0] },
-            // Vertex { position: [-0.433, -0.25, 0.0], color: [0.0, 1.0, 0.0] },
-            // Vertex { position: [0.0, -0.5, 0.0], color: [0.0, 0.5, 0.5] },
-        ];
+        // let vertices = &[
+        //     Vertex { position: [0.0, 0.5, 0.0], tex_coords: [1.0, 0.0]},
+        //     Vertex { position: [0.433, 0.25, 0.0], tex_coords: [0.5, 0.0] },
+        //     Vertex { position: [-0.433, 0.25, 0.0], tex_coords: [0.5, 0.5] },
+        //     Vertex { position: [0.433, -0.25, 0.0], tex_coords: [0.0, 0.0] },
+        //     Vertex { position: [-0.433, -0.25, 0.0], tex_coords: [0.0, 1.0] },
+        //     Vertex { position: [0.0, -0.5, 0.0], tex_coords: [0.0, 0.5] },
+        //     // Vertex { position: [0.0, 0.5, 0.0], color: [1.0, 0.0, 0.0] },
+        //     // Vertex { position: [0.433, 0.25, 0.0], color: [0.5, 0.0, 0.5] },
+        //     // Vertex { position: [-0.433, 0.25, 0.0], color: [0.5, 0.5, 0.0] },
+        //     // Vertex { position: [0.433, -0.25, 0.0], color: [0.0, 0.0, 1.0] },
+        //     // Vertex { position: [-0.433, -0.25, 0.0], color: [0.0, 1.0, 0.0] },
+        //     // Vertex { position: [0.0, -0.5, 0.0], color: [0.0, 0.5, 0.5] },
+        // ];
         let indices = &[
             0, 2, 1,
             2, 4, 1,
@@ -84,7 +131,7 @@ impl WGPUProg {
         ];
         let shader = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/cube_shader.wgsl").into()),
         });
         let dim_contents = &[config.size.width as f32, config.size.height as f32, config.size.width as f32, config.size.height as f32, 0 as f32, 0 as f32, 1 as f32, 0 as f32];
         // let cursor_contents = &[0.0, 0.0, 0.0, 0.0];

@@ -8,6 +8,7 @@ use wgpu::util::DeviceExt;
 pub struct Vertex {
     pub position: [f32; 3],
     pub tex_coords: [f32; 2],
+    pub normal: [f32; 3],
 }
 
 impl Vertex {
@@ -25,6 +26,11 @@ impl Vertex {
                     offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float32x2,
+                },
+                wgpu::VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+                    shader_location: 2,
+                    format: wgpu::VertexFormat::Float32x3,
                 }
             ]
         }
@@ -484,7 +490,7 @@ impl Camera {
     pub fn new(config: &WGPUConfig) -> Self {
         use cgmath::SquareMatrix;
         let mut returnVal =  Self {
-            eye: (0.0, 300.0, 540.0).into(),
+            eye: (0.0, 1.0, 1.0).into(),
             // have it look at the origin
             target: (0.0, 0.0, 0.0).into(),
             // which way is "up"
