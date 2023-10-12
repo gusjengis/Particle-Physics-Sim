@@ -20,7 +20,9 @@ target_arch = "wasm32"
 rustflags = [  "-C", "link-arg=-s",  "-C", "link-arg=--no-entry",  "-C", "link-arg=--export-table",  "-C", "link-arg=--import-memory",  "-C", "link-arg=--allow-undefined"]#"--cfg=web_sys_unstable_apis",
 
 [dependencies]
-# tokio = { version = "1.28.2", features = ["full"] }
+imgui = "0.11.0"
+imgui-wgpu = "0.24.0"
+imgui-winit-support = "0.11.0"
 cfg-if = "1"
 winit = "0.28.3"
 env_logger = "0.10.0"
@@ -34,7 +36,6 @@ chrono = "0.4.24"
 cgmath = "0.18"
 getrandom = { version = "0.2.9", features = ["js"] }
 bytemuck = { version = "1.12", features = [ "derive" ] }
-# tauri = "1.4.1"
 [dependencies.image]
 version = "0.24"
 default-features = false
@@ -43,7 +44,6 @@ features = ["png", "jpeg"]
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.7"
 console_log = "1.0.0"
-# wgpu = { version = "0.16.1", features = []}#"hal","wgc"
 wgpu = { version = "0.16.1", features = []}
 wasm-bindgen = "0.2.84"
 wasm-bindgen-futures = "0.4.34"
@@ -51,148 +51,4 @@ web-sys = { version = "0.3.64", features = [
     "Document",
     "Element",
     "Window",
-    # "Node",
-    # "NodeList",
-    # "Gpu",
-    # "GpuAdapter",
-    # "GpuAddressMode",
-    # "GpuAutoLayoutMode",
-    # "GpuBindGroup",
-    # "GpuBindGroupDescriptor",
-    # "GpuBindGroupEntry",
-    # "GpuBindGroupLayout",
-    # "GpuBindGroupLayoutDescriptor",
-    # "GpuBindGroupLayoutEntry",
-    # "GpuBlendComponent",
-    # "GpuBlendFactor",
-    # "GpuBlendOperation",
-    # "GpuBlendState",
-    # "GpuBuffer",
-    # "GpuBufferBinding",
-    # "GpuBufferBindingLayout",
-    # "GpuBufferBindingType",
-    # "GpuBufferDescriptor",
-    # "GpuCanvasAlphaMode",
-    # "GpuCanvasContext",
-    # "GpuCanvasConfiguration",
-    # "GpuColorDict",
-    # "GpuColorTargetState",
-    # "GpuCommandBuffer",
-    # "GpuCommandBufferDescriptor",
-    # "GpuCommandEncoder",
-    # "GpuCommandEncoderDescriptor",
-    # "GpuCompareFunction",
-    # "GpuCompilationInfo",
-    # "GpuCompilationMessage",
-    # "GpuCompilationMessageType",
-    # "GpuComputePassDescriptor",
-    # "GpuComputePassEncoder",
-    # "GpuComputePipeline",
-    # "GpuComputePipelineDescriptor",
-    # "GpuCullMode",
-    # "GpuDepthStencilState",
-    # "GpuDevice",
-    # "GpuDeviceDescriptor",
-    # "GpuDeviceLostInfo",
-    # "GpuDeviceLostReason",
-    # "GpuError",
-    # "GpuErrorFilter",
-    # # "GpuExtent2dDict", Not yet implemented in web_sys
-    # "GpuExtent3dDict",
-    # "GpuFeatureName",
-    # "GpuFilterMode",
-    # "GpuFragmentState",
-    # "GpuFrontFace",
-    # "GpuImageCopyBuffer",
-    # "GpuImageCopyExternalImage",
-    # "GpuImageCopyTexture",
-    # "GpuImageCopyTextureTagged",
-    # "GpuImageDataLayout",
-    # "GpuIndexFormat",
-    # "GpuLoadOp",
-    # "gpu_map_mode",
-    # "GpuMipmapFilterMode",
-    # "GpuMultisampleState",
-    # "GpuObjectDescriptorBase",
-    # "GpuOrigin2dDict",
-    # "GpuOrigin3dDict",
-    # "GpuOutOfMemoryError",
-    # "GpuPipelineDescriptorBase",
-    # "GpuPipelineLayout",
-    # "GpuPipelineLayoutDescriptor",
-    # "GpuPowerPreference",
-    # "GpuPrimitiveState",
-    # "GpuPrimitiveTopology",
-    # "GpuProgrammableStage",
-    # "GpuQuerySet",
-    # "GpuQuerySetDescriptor",
-    # "GpuQueryType",
-    # "GpuQueue",
-    # "GpuRenderBundle",
-    # "GpuRenderBundleDescriptor",
-    # "GpuRenderBundleEncoder",
-    # "GpuRenderBundleEncoderDescriptor",
-    # "GpuRenderPassColorAttachment",
-    # "GpuRenderPassDepthStencilAttachment",
-    # "GpuRenderPassDescriptor",
-    # "GpuRenderPassEncoder",
-    # "GpuRenderPipeline",
-    # "GpuRenderPipelineDescriptor",
-    # "GpuRequestAdapterOptions",
-    # "GpuSampler",
-    # "GpuSamplerBindingLayout",
-    # "GpuSamplerBindingType",
-    # "GpuSamplerDescriptor",
-    # "GpuShaderModule",
-    # "GpuShaderModuleDescriptor",
-    # "GpuStencilFaceState",
-    # "GpuStencilOperation",
-    # "GpuStorageTextureAccess",
-    # "GpuStorageTextureBindingLayout",
-    # "GpuStoreOp",
-    # "GpuSupportedFeatures",
-    # "GpuSupportedLimits",
-    # "GpuTexture",
-    # "GpuTextureAspect",
-    # "GpuTextureBindingLayout",
-    # "GpuTextureDescriptor",
-    # "GpuTextureDimension",
-    # "GpuTextureFormat",
-    # "GpuTextureSampleType",
-    # "GpuTextureView",
-    # "GpuTextureViewDescriptor",
-    # "GpuTextureViewDimension",
-    # "GpuUncapturedErrorEvent",
-    # "GpuUncapturedErrorEventInit",
-    # "GpuValidationError",
-    # "GpuVertexAttribute",
-    # "GpuVertexBufferLayout",
-    # "GpuVertexFormat",
-    # "GpuVertexState",
-    # "GpuVertexStepMode",
-    # "HtmlCanvasElement",
-    # "OffscreenCanvas",
-    # "ImageBitmap",
-    # "ImageBitmapRenderingContext",
-    # "Window",
-    # "WorkerGlobalScope",
-    # "WorkerNavigator"
 ]}
-
-[patch."https://github.com/gfx-rs/naga"]
-#naga = { path = "../naga" }
-
-[patch."https://github.com/zakarumych/gpu-descriptor"]
-#gpu-descriptor = { path = "../gpu-descriptor/gpu-descriptor" }
-
-[patch."https://github.com/zakarumych/gpu-alloc"]
-#gpu-alloc = { path = "../gpu-alloc/gpu-alloc" }
-
-[patch.crates-io]
-#naga = { path = "../naga" }
-#glow = { path = "../glow" }
-#d3d12 = { path = "../d3d12-rs" }
-#metal = { path = "../metal-rs" }
-#web-sys = { path = "../wasm-bindgen/crates/web-sys" }
-#js-sys = { path = "../wasm-bindgen/crates/js-sys" }
-#wasm-bindgen = { path = "../wasm-bindgen" }
