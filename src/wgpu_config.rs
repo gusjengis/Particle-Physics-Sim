@@ -71,7 +71,7 @@ impl WGPUConfig {
 
         let (device, queue) = adapter.request_device( //&descriptor,
             &wgpu::DeviceDescriptor {
-                features: wgpu::Features::empty(),
+                features: wgpu::Features::VERTEX_WRITABLE_STORAGE,
                 // WebGL doesn't support all of wgpu's features, so if
                 // we're building for the web we'll have to disable some.
                 limits: wgpu::Limits { //downlevel_defaults()
@@ -79,7 +79,7 @@ impl WGPUConfig {
                     max_texture_dimension_2d: 8192,
                     max_texture_dimension_3d: 256,
                     max_texture_array_layers: 256,
-                    max_bind_groups: 4,
+                    max_bind_groups: 8,
                     max_bindings_per_bind_group: 640,
                     max_dynamic_uniform_buffers_per_pipeline_layout: 8,
                     max_dynamic_storage_buffers_per_pipeline_layout: 4,
