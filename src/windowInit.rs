@@ -42,6 +42,17 @@ impl Canvas {
     
         let size = window.inner_size();
 
+        // // https://sotrh.github.io/learn-wgpu/showcase/imgui-demo/ <--  ImGui Tutorial vvv
+        
+        // let mut imgui = imgui::Context::create();
+        // let mut platform = imgui_winit_support::WinitPlatform::init(&mut imgui);
+        // platform.attach_window(
+        //     imgui.io_mut(), 
+        //     &display.window,
+        //     imgui_winit_support::HiDpiMode::Default,
+        // );
+        // imgui.set_ini_filename(None);
+
         Self{
             window,
             size

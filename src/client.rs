@@ -57,7 +57,7 @@ impl Client {
             .build(&event_loop)
             .unwrap();
         // window.set_cursor_visible(false);
-        window.set_title("Perlin Noise");
+        window.set_title("DEM Physics");
 
         let canvas = windowInit::Canvas::new(window);
         let wgpu_config = WGPUConfig::new(&canvas).await;//pollster::block_on(
@@ -77,7 +77,7 @@ impl Client {
         let generation = 0;
         let xOff = 0.0;
         let yOff = 0.0;
-        let scale = 8.0;
+        let scale = 0.5;
         let middle = false;
         let dark = 0.0;
         let W = false;
@@ -124,7 +124,7 @@ impl Client {
 
         //Start Event Loop
         // client.randomize();
-        client.computeGOLGen(true);
+        // client.computeGOLGen(true);
         
 
         event_loop.run(move |event, _, control_flow| match event { 
@@ -178,109 +178,102 @@ impl Client {
     //     // remove todo!()
     // }
 
-    fn cursorToPixel(&self) -> Option<(u32, u32)> {
-        let cursor = (self.cursor_pos.0 - self.xOff as i32, self.cursor_pos.1 - self.yOff as i32);
-        let dim = &self.wgpu_prog.shader_prog.tex2.dimensions;
-        let windowDim = self.wgpu_config.size;
-        let int_scale = self.scale as f32;//windowDim.height/dim.1;
-        let xOff = ((windowDim.width as f32) - (dim.0 as f32)*(int_scale))/2.0; 
-        let yOff = ((windowDim.height as f32) - (dim.1 as f32)*(int_scale))/2.0;
-        let coords = (((dim.0 as f32)*(cursor.0 as f32-xOff )/(dim.0 * int_scale as u32) as f32) as u32, ((dim.1 as f32)*(cursor.1 as f32-yOff )/(dim.1 * int_scale as u32 ) as f32) as u32);
-        if(coords.0 < 0 || coords.0 > dim.0 - 1 || coords.1 < 0 || coords.1 > dim.1 - 1){
-            return None;
-        }
-        return Some(coords);
-    }
+    // fn cursorToPixel(&self) -> Option<(u32, u32)> {
+    //     let cursor = (self.cursor_pos.0 - self.xOff as i32, self.cursor_pos.1 - self.yOff as i32);
+    //     let dim = &self.wgpu_prog.shader_prog.tex2.dimensions;
+    //     let windowDim = self.wgpu_config.size;
+    //     let int_scale = self.scale as f32;//windowDim.height/dim.1;
+    //     let xOff = ((windowDim.width as f32) - (dim.0 as f32)*(int_scale))/2.0; 
+    //     let yOff = ((windowDim.height as f32) - (dim.1 as f32)*(int_scale))/2.0;
+    //     let coords = (((dim.0 as f32)*(cursor.0 as f32-xOff )/(dim.0 * int_scale as u32) as f32) as u32, ((dim.1 as f32)*(cursor.1 as f32-yOff )/(dim.1 * int_scale as u32 ) as f32) as u32);
+    //     if(coords.0 < 0 || coords.0 > dim.0 - 1 || coords.1 < 0 || coords.1 > dim.1 - 1){
+    //         return None;
+    //     }
+    //     return Some(coords);
+    // }
 
-    fn writeToTex(&self, pixel: (u32, u32), color: &[u8]) {
-        let mut texture = &self.wgpu_prog.shader_prog.tex2.texture;
-        let mut dimensions = &self.wgpu_prog.shader_prog.tex2.dimensions;
-        if(self.wgpu_prog.shader_prog.use1){
-            texture = &self.wgpu_prog.shader_prog.tex1.texture;
-            dimensions = &self.wgpu_prog.shader_prog.tex1.dimensions;
-        }
-        self.wgpu_config.queue.write_texture(
-            // Tells wgpu where to copy the pixel data
-            wgpu::ImageCopyTexture {
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d {
-                    x: pixel.0,
-                    y: pixel.1,
-                    z: 0
-                },
-                aspect: wgpu::TextureAspect::All,
-            },
-            // The actual pixel data
-            color,
-            // The layout of the texture
-            wgpu::ImageDataLayout {
-                offset: 0,
-                bytes_per_row: Some((4 * dimensions.0) as u32),
-                rows_per_image: Some((dimensions.1) as u32),
-            },
-            wgpu::Extent3d {
-                width: 1, 
-                height: 1,
-                depth_or_array_layers: 1,
-            }
-        );
-    }
+    // fn writeToTex(&self, pixel: (u32, u32), color: &[u8]) {
+    //     let mut texture = &self.wgpu_prog.shader_prog.tex2.texture;
+    //     let mut dimensions = &self.wgpu_prog.shader_prog.tex2.dimensions;
+    //     if(self.wgpu_prog.shader_prog.use1){
+    //         texture = &self.wgpu_prog.shader_prog.tex1.texture;
+    //         dimensions = &self.wgpu_prog.shader_prog.tex1.dimensions;
+    //     }
+    //     self.wgpu_config.queue.write_texture(
+    //         // Tells wgpu where to copy the pixel data
+    //         wgpu::ImageCopyTexture {
+    //             texture: &texture,
+    //             mip_level: 0,
+    //             origin: wgpu::Origin3d {
+    //                 x: pixel.0,
+    //                 y: pixel.1,
+    //                 z: 0
+    //             },
+    //             aspect: wgpu::TextureAspect::All,
+    //         },
+    //         // The actual pixel data
+    //         color,
+    //         // The layout of the texture
+    //         wgpu::ImageDataLayout {
+    //             offset: 0,
+    //             bytes_per_row: Some((4 * dimensions.0) as u32),
+    //             rows_per_image: Some((dimensions.1) as u32),
+    //         },
+    //         wgpu::Extent3d {
+    //             width: 1, 
+    //             height: 1,
+    //             depth_or_array_layers: 1,
+    //         }
+    //     );
+    // }
 
-    fn randomize(&mut self){
-        for x in 0..self.wgpu_prog.shader_prog.tex1.dimensions.0-1 {
-            for y in 0..self.wgpu_prog.shader_prog.tex1.dimensions.1-1 {
-                let BorW = (rand::random::<f32>()).round();
-                if(!self.toggle){
-                    self.writeToTex((x, y), &[(255.0*BorW) as u8, (255.0*BorW) as u8, (255.0*BorW) as u8, (255.0*BorW) as u8]);
-                }
-            }
-        }
-    }
+    // fn randomize(&mut self){
+    //     for x in 0..self.wgpu_prog.shader_prog.tex1.dimensions.0-1 {
+    //         for y in 0..self.wgpu_prog.shader_prog.tex1.dimensions.1-1 {
+    //             let BorW = (rand::random::<f32>()).round();
+    //             if(!self.toggle){
+    //                 self.writeToTex((x, y), &[(255.0*BorW) as u8, (255.0*BorW) as u8, (255.0*BorW) as u8, (255.0*BorW) as u8]);
+    //             }
+    //         }
+    //     }
+    // }
 
-    pub fn computeGOLGen(&mut self, force: bool){
-        // while(true){
-            // println! ("test");
-            // println! ("{}", self.toggle);
+    // pub fn computeGOLGen(&mut self, force: bool){
+    //     // while(true){
+    //         // println! ("test");
+    //         // println! ("{}", self.toggle);
 
-            if(self.toggle && Local::now().timestamp_millis() - self.prev_gen_time.timestamp_millis() >= self.generations as i64 || force){
-                for i in 0..self.genPerFrame {
-                    // let start = Local::now();
+    //         if(self.toggle && Local::now().timestamp_millis() - self.prev_gen_time.timestamp_millis() >= self.generations as i64 || force){
+    //             for i in 0..self.genPerFrame {
+    //                 // let start = Local::now();
 
-                        self.wgpu_prog.shader_prog.compute(&self.wgpu_config);
-                        self.wgpu_prog.swap(&self.wgpu_config);
-                        self.prev_gen_time = Local::now();
-                        self.generation += 1;
-                    // println! ("{}", ((Local::now().timestamp_micros() - start.timestamp_micros()) as f32/1000.0));
+    //                     self.wgpu_prog.shader_prog.compute(&self.wgpu_config);
+    //                     self.wgpu_prog.swap(&self.wgpu_config);
+    //                     self.prev_gen_time = Local::now();
+    //                     self.generation += 1;
+    //                 // println! ("{}", ((Local::now().timestamp_micros() - start.timestamp_micros()) as f32/1000.0));
 
-                    // println! ("{}", 1000.0/((Local::now().timestamp_micros() - start.timestamp_micros()) as f32/1000.0));
+    //                 // println! ("{}", 1000.0/((Local::now().timestamp_micros() - start.timestamp_micros()) as f32/1000.0));
 
-                }
-            }
-        // }
-    }
+    //             }
+    //         }
+    //     // }
+    // }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
-            // let size = self.canvas.window.
             self.canvas.updateSize(new_size);
             self.wgpu_config.config.width = new_size.width;
             self.wgpu_config.config.height = new_size.height;
             self.wgpu_config.size = new_size;
-            // #[cfg(target_arch = "wasm32")]{
-            //     self.canvas.window.set_inner_size(new_size);
-            // }
-            // log::warn!("{}", new_size.width);
-            // self.wgpu_prog.dim_uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(&[new_size.width as f32, new_size.height as f32, new_size.width as f32, new_size.height as f32]));
+ 
             self.wgpu_config.surface.configure(&self.wgpu_config.device, &self.wgpu_config.config);
 
             let windowDim = self.wgpu_config.size;
-            let dim = &self.wgpu_prog.shader_prog.tex2.dimensions;
-            let int_scale = self.scale as f32;//(windowDim.height/dim.1) as f32;
+            // let dim = &self.wgpu_prog.shader_prog.tex2.dimensions;
+            let int_scale = self.scale as f32;
             
-            // if(self.temp > int_scale - 1.0){
-            //     self.temp = int_scale - 1.0;
-            // }
+
             self.wgpu_prog.dim_uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
                 &[self.wgpu_config.size.width as f32,
                   self.wgpu_config.size.width as f32, 
@@ -298,32 +291,32 @@ impl Client {
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
         match event {
-            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. } => {
-                let mut coords = self.cursorToPixel();
-                match coords {
-                    Some(value) => {
-                        if(!self.toggle){
-                            let pixel = coords.unwrap();
-                            self.writeToTex(pixel, &[0 as u8, 0 as u8, 0 as u8, 0 as u8]);
-                        }
-                        return true;
-                    }
-                    None => {return true;}
-                }
-            },
-            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. } => {
-                let mut coords = self.cursorToPixel();
-                match coords {
-                    Some(value) => {
-                        if(!self.toggle){
-                            let pixel = coords.unwrap();
-                            self.writeToTex(pixel, &[255 as u8, 255 as u8, 255 as u8, 255 as u8]);
-                        }
-                        return true;
-                    }
-                    None => {return true;}
-                }
-            },
+            // WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. } => {
+            //     let mut coords = self.cursorToPixel();
+            //     match coords {
+            //         Some(value) => {
+            //             if(!self.toggle){
+            //                 let pixel = coords.unwrap();
+            //                 self.writeToTex(pixel, &[0 as u8, 0 as u8, 0 as u8, 0 as u8]);
+            //             }
+            //             return true;
+            //         }
+            //         None => {return true;}
+            //     }
+            // },
+            // WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. } => {
+            //     let mut coords = self.cursorToPixel();
+            //     match coords {
+            //         Some(value) => {
+            //             if(!self.toggle){
+            //                 let pixel = coords.unwrap();
+            //                 self.writeToTex(pixel, &[255 as u8, 255 as u8, 255 as u8, 255 as u8]);
+            //             }
+            //             return true;
+            //         }
+            //         None => {return true;}
+            //     }
+            // },
             WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Middle, .. } => {
                 self.middle = true;
                 return true;
@@ -343,8 +336,8 @@ impl Client {
                     }
                     _ => {}
                 }
-                if(self.scale < 1.0){ 
-                    self.scale = 1.0; 
+                if(self.scale < 0.5){ 
+                    self.scale = 0.5; 
                     self.xOff /= ((2 as f32).powf(mY));
                     self.yOff /= ((2 as f32).powf(mY));
                 }
@@ -406,55 +399,55 @@ impl Client {
                             self.generation = 0;
                             return true;
                         },
-                    KeyboardInput {
-                        virtual_keycode: Some(VirtualKeyCode::G), // forward
-                        state: ElementState::Pressed,
-                        ..
-                    } => {
-                            // self.G = true;
-                            let camera = &mut self.wgpu_prog.cam;
-                            let forward = camera.target - camera.eye;
-                            let forward_norm = forward.normalize();
-                            camera.eye += forward_norm * camera.speed;
-                            return true;
-                        },
-                    KeyboardInput {
-                        virtual_keycode: Some(VirtualKeyCode::B), // backward
-                        state: ElementState::Pressed,
-                        ..
-                    } => {
-                            let camera = &mut self.wgpu_prog.cam;
-                            let forward = camera.target - camera.eye;
-                            let forward_norm = forward.normalize();
-                            camera.eye -= forward_norm * camera.speed;
-                            return true;
-                        },
-                    KeyboardInput {
-                        virtual_keycode: Some(VirtualKeyCode::V), // left
-                        state: ElementState::Pressed,
-                        ..
-                    } => {
-                            let camera = &mut self.wgpu_prog.cam;
-                            let forward = camera.target - camera.eye;
-                            let forward_norm = forward.normalize();
-                            let forward_mag = forward.magnitude();
-                            let right = forward_norm.cross(camera.up);
-                            camera.eye = camera.target - (forward - right * camera.speed).normalize() * forward_mag;
-                            return true;
-                        },
-                    KeyboardInput {
-                        virtual_keycode: Some(VirtualKeyCode::N), // right
-                        state: ElementState::Pressed,
-                        ..
-                    } => {
-                            let camera = &mut self.wgpu_prog.cam;
-                            let forward = camera.target - camera.eye;
-                            let forward_norm = forward.normalize();
-                            let forward_mag = forward.magnitude();
-                            let right = forward_norm.cross(camera.up);
-                            camera.eye = camera.target - (forward + right * camera.speed).normalize() * forward_mag;
-                            return true;
-                        },
+                    // KeyboardInput {
+                    //     virtual_keycode: Some(VirtualKeyCode::G), // forward
+                    //     state: ElementState::Pressed,
+                    //     ..
+                    // } => {
+                    //         // self.G = true;
+                    //         let camera = &mut self.wgpu_prog.cam;
+                    //         let forward = camera.target - camera.eye;
+                    //         let forward_norm = forward.normalize();
+                    //         camera.eye += forward_norm * camera.speed;
+                    //         return true;
+                    //     },
+                    // KeyboardInput {
+                    //     virtual_keycode: Some(VirtualKeyCode::B), // backward
+                    //     state: ElementState::Pressed,
+                    //     ..
+                    // } => {
+                    //         let camera = &mut self.wgpu_prog.cam;
+                    //         let forward = camera.target - camera.eye;
+                    //         let forward_norm = forward.normalize();
+                    //         camera.eye -= forward_norm * camera.speed;
+                    //         return true;
+                    //     },
+                    // KeyboardInput {
+                    //     virtual_keycode: Some(VirtualKeyCode::V), // left
+                    //     state: ElementState::Pressed,
+                    //     ..
+                    // } => {
+                    //         let camera = &mut self.wgpu_prog.cam;
+                    //         let forward = camera.target - camera.eye;
+                    //         let forward_norm = forward.normalize();
+                    //         let forward_mag = forward.magnitude();
+                    //         let right = forward_norm.cross(camera.up);
+                    //         camera.eye = camera.target - (forward - right * camera.speed).normalize() * forward_mag;
+                    //         return true;
+                    //     },
+                    // KeyboardInput {
+                    //     virtual_keycode: Some(VirtualKeyCode::N), // right
+                    //     state: ElementState::Pressed,
+                    //     ..
+                    // } => {
+                    //         let camera = &mut self.wgpu_prog.cam;
+                    //         let forward = camera.target - camera.eye;
+                    //         let forward_norm = forward.normalize();
+                    //         let forward_mag = forward.magnitude();
+                    //         let right = forward_norm.cross(camera.up);
+                    //         camera.eye = camera.target - (forward + right * camera.speed).normalize() * forward_mag;
+                    //         return true;
+                    //     },
                     KeyboardInput {
                         virtual_keycode: Some(VirtualKeyCode::H),
                         state: ElementState::Pressed,
@@ -465,20 +458,19 @@ impl Client {
                             self.yOff = 0.0;
                             return true;
                         },
-                    KeyboardInput {
-                        virtual_keycode: Some(VirtualKeyCode::C),
-                        state: ElementState::Pressed,
-                        ..
-                    } => {
-                            // self.temp = 1.0;
-                            self.start_time = Local::now();
-                            self.wgpu_prog.shader_prog = WGPUComputeProg::new(&self.wgpu_config);
-                            self.toggle = false;
-                            self.generation = 0;
-                            self.wgpu_prog.shader_prog.clearTextures(&self.wgpu_config);
-                            return true;
-                        },
-                    
+                    // KeyboardInput {
+                    //     virtual_keycode: Some(VirtualKeyCode::C),
+                    //     state: ElementState::Pressed,
+                    //     ..
+                    // } => {
+                    //         // self.temp = 1.0;
+                    //         self.start_time = Local::now();
+                    //         self.wgpu_prog.shader_prog = WGPUComputeProg::new(&self.wgpu_config);
+                    //         self.toggle = false;
+                    //         self.generation = 0;
+                    //         self.wgpu_prog.shader_prog.clearTextures(&self.wgpu_config);
+                    //         return true;
+                    //     },
                     KeyboardInput {
                         virtual_keycode: Some(VirtualKeyCode::L),
                         state: ElementState::Pressed,
@@ -551,21 +543,21 @@ impl Client {
                             self.D = false;
                             return true;
                         },
-                    KeyboardInput {
-                        virtual_keycode: Some(VirtualKeyCode::Up),
-                        state: ElementState::Pressed,
-                        ..
-                    } => {
-                            let windowDim = self.wgpu_config.size;
-                            let dim = &self.wgpu_prog.shader_prog.tex2.dimensions;
-                            // let int_scale = self.scale as f32;//(windowDim.height/dim.1) as f32;
-                            self.temp += 1.0;
+                    // KeyboardInput {
+                    //     virtual_keycode: Some(VirtualKeyCode::Up),
+                    //     state: ElementState::Pressed,
+                    //     ..
+                    // } => {
+                    //         let windowDim = self.wgpu_config.size;
+                    //         let dim = &self.wgpu_prog.shader_prog.tex2.dimensions;
+                    //         // let int_scale = self.scale as f32;//(windowDim.height/dim.1) as f32;
+                    //         self.temp += 1.0;
                             
-                            // if(self.temp > self.scale as f32 - 1.0){
-                            //     self.temp = self.scale as f32 - 1.0;
-                            // }
-                            return true;
-                        },
+                    //         // if(self.temp > self.scale as f32 - 1.0){
+                    //         //     self.temp = self.scale as f32 - 1.0;
+                    //         // }
+                    //         return true;
+                    //     },
                     KeyboardInput {
                         virtual_keycode: Some(VirtualKeyCode::Down),
                         state: ElementState::Pressed,
@@ -594,9 +586,11 @@ impl Client {
                         state: ElementState::Pressed,
                         ..
                     } => {
-                            self.generations -= 10.0;
-                            if(self.generations < 0.0){
-                                self.generations = 0.0;
+                    //         self.generations -= 10.0;
+                    //         if(self.generations < 0.0){
+                    //             self.generations = 0.0;
+                    //         }
+                            if self.genPerFrame < 214 {
                                 self.genPerFrame += 1;
                             }
                             return true;
@@ -618,39 +612,29 @@ impl Client {
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        // log::debug!("render");
-
-        //RANDOM CLEAR COLOR EACH FRAME
-        // let mut rng = rand::thread_rng();
-        // self.clear_color = wgpu::Color {
-        //     r: rng.gen::<f64>()/1.0,
-        //     g: rng.gen::<f64>()/1.0,
-        //     b: rng.gen::<f64>()/1.0,
-        //     a: 1.0,
-        // };
-        let camera = &self.wgpu_prog.cam;
-        let forward = camera.target - camera.eye;
-        let xzMag = (forward.x.powf(2.0) + forward.z.powf(2.0)).powf(0.5);
-        let xzNorm = (forward.x / xzMag, forward.z / xzMag);
-        let angle = xzNorm.1.atan2(xzNorm.0);
-        let move_speed = 5.0;
-        if(self.A){ self.xOff += move_speed * angle.sin(); self.yOff -= move_speed * angle.cos(); }
-        if(self.S){ self.xOff -= move_speed * angle.cos(); self.yOff -= move_speed * angle.sin(); }
-        if(self.D){ self.xOff -= move_speed * angle.sin(); self.yOff += move_speed * angle.cos(); }
-        if(self.W){ self.xOff += move_speed * angle.cos(); self.yOff += move_speed * angle.sin();}
+        // let camera = &self.wgpu_prog.cam;
+        // let forward = camera.target - camera.eye;
+        // let xzMag = (forward.x.powf(2.0) + forward.z.powf(2.0)).powf(0.5);
+        // let xzNorm = (forward.x / xzMag, forward.z / xzMag);
+        // let angle = xzNorm.1.atan2(xzNorm.0);
+        // let move_speed = 5.0;
+        // if(self.A){ self.xOff += move_speed * angle.sin(); self.yOff -= move_speed * angle.cos(); }
+        // if(self.S){ self.xOff -= move_speed * angle.cos(); self.yOff -= move_speed * angle.sin(); }
+        // if(self.D){ self.xOff -= move_speed * angle.sin(); self.yOff += move_speed * angle.cos(); }
+        // if(self.W){ self.xOff += move_speed * angle.cos(); self.yOff += move_speed * angle.sin();}
         
-        if(self.xOff < -400.0) { self.xOff = 400.0;}
-        if(self.xOff > 400.0) { self.xOff = -400.0;}
-        if(self.yOff < -400.0) { self.yOff = 400.0;}
-        if(self.yOff > 400.0) { self.yOff = -400.0;}
-        let mut time = 1;//Local::noD().timestamp_millis() - self.start_time.timestamp_millis();
-        if(!self.HL){
-            time = 0;
-        }
+        // if(self.xOff < -400.0) { self.xOff = 400.0;}
+        // if(self.xOff > 400.0) { self.xOff = -400.0;}
+        // if(self.yOff < -400.0) { self.yOff = 400.0;}
+        // if(self.yOff > 400.0) { self.yOff = -400.0;}
+        // let mut time = 1;
+        // if(!self.HL){
+        //     time = 0;
+        // }
         
         self.wgpu_prog.dim_uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
             &[self.wgpu_config.size.width as f32,
-              time as f32, 
+              0.0 as f32, //time as f32, 
               self.wgpu_config.size.height as f32,
               self.temp,
               self.xOff as f32,
@@ -659,37 +643,35 @@ impl Client {
               self.dark as f32]
         ));   
 
-        self.wgpu_prog.shader_prog.uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
-            &[  (Local::now().timestamp_millis() - self.start_time.timestamp_millis()) as f32, 
-                0 as f32, 
-                0 as f32, 
-                0 as f32
-            ]
-        ));   
+        // self.wgpu_prog.shader_prog.uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
+        //     &[  (Local::now().timestamp_millis() - self.start_time.timestamp_millis()) as f32, 
+        //         0 as f32, 
+        //         0 as f32, 
+        //         0 as f32
+        //     ]
+        // ));   
 
-        self.wgpu_prog.cam.update_view_proj(&self.wgpu_config);
-        self.wgpu_prog.cam_uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
-            &[self.wgpu_prog.cam.view_proj, self.wgpu_prog.cam.eye(), self.wgpu_prog.cam.target()]
-        )); 
+        // self.wgpu_prog.cam.update_view_proj(&self.wgpu_config);
+        // self.wgpu_prog.cam_uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
+        //     &[self.wgpu_prog.cam.view_proj, self.wgpu_prog.cam.eye(), self.wgpu_prog.cam.target()]
+        // )); 
         
-        
-        // if(self.temp < 256.5){
-        //     self.temp += 0.2;
-        // } 
-        // self.wgpu_prog.time_uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
-        //     &[time as f32,
-        //       time as f32, 
-        //       time as f32,
-        //       time as f32]
-        // ));
 
-        #[cfg(target_arch = "wasm32")] {
-            let w = web_sys::window().unwrap().inner_width().unwrap().as_f64().unwrap() as u32;
-            let h = web_sys::window().unwrap().inner_height().unwrap().as_f64().unwrap() as u32;
-            if(!(self.canvas.size.width == w && self.canvas.size.height == h)){
-                self.resize(winit::dpi::PhysicalSize::new(w,h));
+        // #[cfg(target_arch = "wasm32")] {
+        //     let w = web_sys::window().unwrap().inner_width().unwrap().as_f64().unwrap() as u32;
+        //     let h = web_sys::window().unwrap().inner_height().unwrap().as_f64().unwrap() as u32;
+        //     if(!(self.canvas.size.width == w && self.canvas.size.height == h)){
+        //         self.resize(winit::dpi::PhysicalSize::new(w,h));
+        //     }
+        // }
+        if self.toggle {
+            for i in 0..self.genPerFrame {
+                self.wgpu_prog.shader_prog.compute(&self.wgpu_config);
+                self.generation += 1;
             }
         }
+        
+        
 
         let output = self.wgpu_config.surface.get_current_texture()?;
         let view = output
@@ -697,7 +679,7 @@ impl Client {
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         
-            self.computeGOLGen(false);
+        //     self.computeGOLGen(false);
             
         
 
@@ -731,35 +713,23 @@ impl Client {
                 }),
             });
 
-            self.wgpu_prog.shader_prog.tex1.setBinding(&self.wgpu_config, 5, false);
+        //     self.wgpu_prog.shader_prog.tex1.setBinding(&self.wgpu_config, 5, false);
 
-            
-        
-            // NEW!
             render_pass.set_pipeline(&self.wgpu_prog.render_pipeline); // 2.
-            render_pass.set_bind_group(0, &self.wgpu_prog.tex1.diffuse_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.wgpu_prog.dim_uniform.bind_group, &[]);
+            render_pass.set_bind_group(0, &self.wgpu_prog.dim_uniform.bind_group, &[]);
+            render_pass.set_bind_group(1, &self.wgpu_prog.shader_prog.pos_buffer.bind_group, &[]);
+            render_pass.set_bind_group(2, &self.wgpu_prog.shader_prog.radii_buffer.bind_group, &[]);
+            render_pass.set_bind_group(3, &self.wgpu_prog.shader_prog.color_buffer.bind_group, &[]);
             // render_pass.set_bind_group(2, &self.wgpu_prog.time_uniform.bind_group, &[]);
             // render_pass.set_bind_group(2, &self.wgpu_prog.tex2.diffuse_bind_group, &[]);
-
-            let texSelector = self.wgpu_prog.shader_prog.use1;
-            if(texSelector){
-                render_pass.set_bind_group(3, &self.wgpu_prog.shader_prog.tex1.diffuse_bind_group, &[]);
-
-            } else {
-                render_pass.set_bind_group(3, &self.wgpu_prog.shader_prog.tex2.diffuse_bind_group, &[]);
-
-            }
-            render_pass.set_bind_group(2, &self.wgpu_prog.cam_uniform.bind_group, &[]);
 
             // render_pass.set_bind_group(1, &self.cursor_uniform.bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.wgpu_prog.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.wgpu_prog.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            render_pass.draw_indexed(0..36 as u32, 0, 0..1); // 640000
+            render_pass.draw_indexed(0..6 as u32, 0, 0..wgpu_prog::particles as u32); // 640000
         }
     
-        // submit will accept anything that implements IntoIter
         self.wgpu_config.queue.submit(std::iter::once(encoder.finish()));
         output.present();
 
@@ -775,10 +745,20 @@ impl Client {
                 #[cfg(target_arch = "wasm32")] {
                     log::warn!("FPS: {}", 1000000.0/(now.timestamp_micros() - self.last_draw.timestamp_micros()) as f32);
                 }
-                println!("Generations/s: {}, Total Generations: {}", (self.generation - self.prevGen) as f32/time_since, self.generation);
-                println!("Generations/Update: {}, Time Between Updates(ms): {}", self.genPerFrame as f32, self.generations);
+                let mut time_passed = (Local::now().timestamp_millis() - self.start_time.timestamp_millis()) as f32/1000.0;
+                if !self.toggle { time_passed = 0.0; }
+                let sim_time_passed = 0.0000390625*self.generation as f32;
+                let genPerSec = (self.generation - self.prevGen) as f32/time_since;
+                let sim_speed = 100.0*genPerSec*0.0000390625;
+                let twsp = 100.0*20.0/sim_speed;
+                println!("Generations/s: {}, Total Generations: {}", genPerSec, self.generation);
+                println!("Elapsed Time: {} seconds", time_passed);
+                println!("Elapsed Time(Sim): {} seconds, % Real Speed: {}", sim_time_passed, sim_speed);
+                println!("20 Sec Proj: {}:{}:{}", (twsp/3600.0) as i32, ((twsp/60.0)%60.0) as i32, twsp%60.0);
+                println!("Particles: {}", wgpu_prog::particles);
+                println!("Generations/Frame: {}", self.genPerFrame as f32);
                 println!("Scale: {}, (xOff, yOff): ({}, {})", self.scale as f32, self.xOff, self.yOff);
-                println!("Height: {}", self.temp as f32);
+                // println!("Height: {}", self.temp as f32);
                 self.prevGen = self.generation;
                 self.bench_start_time = Local::now();
                 
