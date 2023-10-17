@@ -6,7 +6,8 @@ use crate::wgpu_config::*;
 
 use wgpu::util::DeviceExt;
 
-pub const particles: usize = 256*100;//11100000;
+const p_mult: usize = 782;//5;
+pub const particles: usize = 256*p_mult;//11100000;
 
 pub const VERTICES: &[Vertex] = &[
     Vertex { position: [1.0, 1.0, 0.0] }, // 0 - Top Right
@@ -178,27 +179,24 @@ impl WGPUComputeProg {
         // Create empty arrays for particle data
         let mut pos = vec![0.0 as f32; particles*2];
         let mut vel = vec![0.0 as f32; particles*2];
-        let mut vel_buf = vec![0.0 as f32; particles*2];
         let mut radii = vec![0.0 as f32; particles];
         let mut color = vec![0.0 as f32; particles*3];
-
+        
         // Setup initial state, Fill with random values
         let mut rng = rand::thread_rng();
-        let max_rad = 0.004;
-        let max_vel = 0.1;
+        let max_rad = 0.2/p_mult as f32;
+        let max_vel = 4.0;
         let max_pos = 2.0;
-        for i in 0..particles as usize {
-            pos[i*2] = rng.gen_range(-max_pos..max_pos);
-            pos[i*2+1] = rng.gen_range(-max_pos..max_pos);
-            vel[i*2] = rng.gen_range(-max_vel..max_vel);
-            vel[i*2+1] = rng.gen_range(-max_vel..max_vel);
-            radii[i] = rng.gen_range(max_rad/5.0..max_rad);
-            color[i*3] = rng.gen_range(0.0..1.0);
-            color[i*3+1] = rng.gen_range(0.0..1.0);
-            color[i*3+2] = rng.gen_range(0.0..1.0);
-            // WGPUComputeProg::print_particle(i, &pos, &vel, &radii, &color);
+        for i in 0..pos.len() {
+            pos[i] = rng.gen_range(-max_pos..max_pos);
+            vel[i] = rng.gen_range(-max_vel..max_vel);
         }
-        
+        for i in 0..radii.len() as usize {
+            radii[i] = rng.gen_range(max_rad/5.0..max_rad);
+        }
+        for i in 0..color.len() as usize {
+            color[i] = rng.gen_range(0.1..1.0);
+        }
         // Convert arrays to GPU buffers
 
         let pos_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&pos), "Position Buffer".to_string(), 0);
@@ -228,7 +226,7 @@ impl WGPUComputeProg {
 
         let compute_pipeline_layout2 = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Collision compute"),
-            bind_group_layouts: &[&pos_buffer.bind_group_layout, &vel_buffer.bind_group_layout, &radii_buffer.bind_group_layout, &vel_buf_buffer.bind_group_layout],
+            bind_group_layouts: &[&pos_buffer.bind_group_layout, &vel_buffer.bind_group_layout, &radii_buffer.bind_group_layout, &vel_buf_buffer.bind_group_layout, &color_buffer.bind_group_layout],
             push_constant_ranges: &[]
         });
         //create pipeline
@@ -258,41 +256,6 @@ impl WGPUComputeProg {
             compute_pipeline2
         }
     }
-
-    // pub fn clearTextures(&mut self, config: &WGPUConfig){
-    //     self.tex1 = Texture::new(&config, include_bytes!("../golClear.png"), 0);
-    //     self.tex2 = Texture::new(&config, include_bytes!("../golClear.png"), 1);
-    //     self.swap(config);
-    // }
-
-    // fn swap(&mut self, config: &WGPUConfig){
-    //     self.tex1.setBinding(config, 0, true);
-    //     self.tex2.setBinding(config, 1, false);
-    //     if(!self.use1){
-    //         self.tex2.setBinding(config, 0, true);
-    //         self.tex1.setBinding(config, 1, false);
-    //     }
-    //     let mut compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-    //         label: Some("gol compute"),
-    //         bind_group_layouts: &[&self.tex1.bind_group_layout, &self.tex2.bind_group_layout, &self.uniform.bind_group_layout],
-    //         push_constant_ranges: &[]
-    //     });
-    //     if(!self.use1){
-    //         compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-    //             label: Some("gol compute"),
-    //             bind_group_layouts: &[&self.tex2.bind_group_layout, &self.tex1.bind_group_layout, &self.uniform.bind_group_layout],
-    //             push_constant_ranges: &[]
-    //         });
-    //     }
-    //     //create pipeline
-
-    //     self.compute_pipeline = config.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-    //         label: None,
-    //         layout: Some(&compute_pipeline_layout),
-    //         module: &self.shader1,
-    //         entry_point: "main",
-    //     });
-    // }
 
     pub fn compute(&mut self, config: &WGPUConfig){
         //start compute
@@ -338,10 +301,11 @@ impl WGPUComputeProg {
             compute_pass.set_bind_group(1, &self.vel_buffer.bind_group, &[]);     
             compute_pass.set_bind_group(2, &self.radii_buffer.bind_group, &[]);   
             compute_pass.set_bind_group(3, &self.vel_buf_buffer.bind_group, &[]);     
+            compute_pass.set_bind_group(4, &self.color_buffer.bind_group, &[]);     
 
 
             // Dispatch the compute shader
-            compute_pass.dispatch_workgroups(particles as u32/256, 1, 1);
+            compute_pass.dispatch_workgroups(p_mult as u32, 1, 1);
 
             // You can also set other compute pass options, such as memory barriers and synchronization
 

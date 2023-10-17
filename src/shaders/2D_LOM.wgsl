@@ -6,7 +6,7 @@
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let id: u32 = global_id.x;
 
-    let deltaTime: f32 = 0.0000390625; // assuming 60 FPS
+    let deltaTime: f32 = 0.0000390625;
 
     velocities[id] = velocities_buf[id];
     positions[id] = positions[id] + velocities[id] * deltaTime;

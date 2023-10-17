@@ -49,7 +49,7 @@ fn vs_main(
     let off = vec2(dim.xOff / aspect, -dim.yOff)/1000.0;
     out.clip_position = vec4(xy*radii_buf[instance] + center + off, 0.0, 1.0);
     out.position = in.position;
-    out.color = color_buf[instance];
+    out.color = color_buf[instance%100u];
     out.radius = radii_buf[instance];
     return out;
 }

@@ -57,7 +57,7 @@ impl Client {
             .build(&event_loop)
             .unwrap();
         // window.set_cursor_visible(false);
-        window.set_title("Perlin Noise");
+        window.set_title("DEM Physics");
 
         let canvas = windowInit::Canvas::new(window);
         let wgpu_config = WGPUConfig::new(&canvas).await;//pollster::block_on(
@@ -586,9 +586,11 @@ impl Client {
                         state: ElementState::Pressed,
                         ..
                     } => {
-                            self.generations -= 10.0;
-                            if(self.generations < 0.0){
-                                self.generations = 0.0;
+                    //         self.generations -= 10.0;
+                    //         if(self.generations < 0.0){
+                    //             self.generations = 0.0;
+                    //         }
+                            if self.genPerFrame < 214 {
                                 self.genPerFrame += 1;
                             }
                             return true;
@@ -662,10 +664,13 @@ impl Client {
         //         self.resize(winit::dpi::PhysicalSize::new(w,h));
         //     }
         // }
-        for i in 0..1 {
-            self.wgpu_prog.shader_prog.compute(&self.wgpu_config);
+        if self.toggle {
+            for i in 0..self.genPerFrame {
+                self.wgpu_prog.shader_prog.compute(&self.wgpu_config);
+                self.generation += 1;
+            }
         }
-        self.generation += 1;
+        
         
 
         let output = self.wgpu_config.surface.get_current_texture()?;
@@ -740,9 +745,18 @@ impl Client {
                 #[cfg(target_arch = "wasm32")] {
                     log::warn!("FPS: {}", 1000000.0/(now.timestamp_micros() - self.last_draw.timestamp_micros()) as f32);
                 }
-                println!("Generations/s: {}, Total Generations: {}", (self.generation - self.prevGen) as f32/time_since, self.generation);
+                let mut time_passed = (Local::now().timestamp_millis() - self.start_time.timestamp_millis()) as f32/1000.0;
+                if !self.toggle { time_passed = 0.0; }
+                let sim_time_passed = 0.0000390625*self.generation as f32;
+                let genPerSec = (self.generation - self.prevGen) as f32/time_since;
+                let sim_speed = 100.0*genPerSec*0.0000390625;
+                let twsp = 100.0*20.0/sim_speed;
+                println!("Generations/s: {}, Total Generations: {}", genPerSec, self.generation);
+                println!("Elapsed Time: {} seconds", time_passed);
+                println!("Elapsed Time(Sim): {} seconds, % Real Speed: {}", sim_time_passed, sim_speed);
+                println!("20 Sec Proj: {}:{}:{}", (twsp/3600.0) as i32, ((twsp/60.0)%60.0) as i32, twsp%60.0);
                 println!("Particles: {}", wgpu_prog::particles);
-                // println!("Generations/Update: {}, Time Between Updates(ms): {}", self.genPerFrame as f32, self.generations);
+                println!("Generations/Frame: {}", self.genPerFrame as f32);
                 println!("Scale: {}, (xOff, yOff): ({}, {})", self.scale as f32, self.xOff, self.yOff);
                 // println!("Height: {}", self.temp as f32);
                 self.prevGen = self.generation;
