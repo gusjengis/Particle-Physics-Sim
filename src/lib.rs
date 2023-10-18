@@ -4,6 +4,7 @@ pub mod client;
 pub mod wgpu_config;
 pub mod wgpu_structs;
 pub mod wgpu_prog;
+pub mod settings;
 use std::ptr::null;
 use winit::dpi::PhysicalSize;
 use log::*;

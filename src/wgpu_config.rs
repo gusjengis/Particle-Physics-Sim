@@ -1,4 +1,5 @@
 use crate::windowInit;
+use crate::settings;
 use crate::wgpu_structs::*;
 use wgpu::util::DeviceExt;
 
@@ -11,8 +12,8 @@ pub struct WGPUConfig {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
-    pub size: winit::dpi::PhysicalSize<u32>
-
+    pub size: winit::dpi::PhysicalSize<u32>,
+    pub prog_settings: settings::Settings
     // dim_uniform: Uniform,
     // cursor_uniform: Uniform,
 
@@ -130,7 +131,7 @@ impl WGPUConfig {
         };
         surface.configure(&device, &config);
     
-
+        let prog_settings = settings::Settings::new();
  
 
         
@@ -143,6 +144,7 @@ impl WGPUConfig {
             queue,
             config,
             size,
+            prog_settings
         }
     }
 

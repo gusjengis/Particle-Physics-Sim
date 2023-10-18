@@ -45,7 +45,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pos = positions[id];
     let rad = radii[id];
     let elasticity = 0.5;
-    let xW = 2.0*16.0/9.0;
+    let xW = 2.0*16.0/11.0;
     // if pos.x+rad > xW {
     //     let overlap: f32 = (pos.x + rad) - xW;
     //     let force: vec2<f32> = vec2(-stiffness * overlap, 0.0);

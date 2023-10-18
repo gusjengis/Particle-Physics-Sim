@@ -31,7 +31,6 @@ pub struct Client {
     prev_gen_time: DateTime<Local>,
     cursor_pos: (i32, i32),
     HL: bool,
-    genPerFrame: i32,
     prevGen: i32,
     generation: i32,
     xOff: f32,
@@ -72,7 +71,6 @@ impl Client {
         let prev_gen_time = Local::now();
         let cursor_pos = (0, 0);
         let HL = false;
-        let genPerFrame = 1; 
         let prevGen = 0;
         let generation = 0;
         let xOff = 0.0;
@@ -104,7 +102,6 @@ impl Client {
             prev_gen_time,
             cursor_pos,
             HL,
-            genPerFrame,
             generation,
             xOff,
             yOff,
@@ -244,7 +241,7 @@ impl Client {
     //         // println! ("{}", self.toggle);
 
     //         if(self.toggle && Local::now().timestamp_millis() - self.prev_gen_time.timestamp_millis() >= self.generations as i64 || force){
-    //             for i in 0..self.genPerFrame {
+    //             for i in 0..self.wgpu_config.prog_settings.genPerFrame {
     //                 // let start = Local::now();
 
     //                     self.wgpu_prog.shader_prog.compute(&self.wgpu_config);
@@ -317,11 +314,11 @@ impl Client {
             //         None => {return true;}
             //     }
             // },
-            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Middle, .. } => {
+            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. } => {
                 self.middle = true;
                 return true;
             },
-            WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Middle, .. } => {
+            WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } => {
                 self.middle = false;
                 return true;
             }
@@ -397,6 +394,26 @@ impl Client {
                             self.wgpu_prog.shader_prog = WGPUComputeProg::new(&self.wgpu_config);
                             self.toggle = false;
                             self.generation = 0;
+                            return true;
+                        },
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::Equals),
+                        state: ElementState::Pressed,
+                        ..
+                    } => {
+                            self.scale = (self.scale as f32*((2 as f32).powf(1.0)));
+                            self.xOff *= ((2 as f32).powf(1.0));
+                            self.yOff *= ((2 as f32).powf(1.0));
+                            return true;
+                        },
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::Minus),
+                        state: ElementState::Pressed,
+                        ..
+                    } => {
+                            self.scale = (self.scale as f32*((2 as f32).powf(-1.0)));
+                            self.xOff *= ((2 as f32).powf(-1.0));
+                            self.yOff *= ((2 as f32).powf(-1.0));
                             return true;
                         },
                     // KeyboardInput {
@@ -574,8 +591,8 @@ impl Client {
                         state: ElementState::Pressed,
                         ..
                     } => {
-                            if(self.genPerFrame > 1){
-                                self.genPerFrame -= 1;
+                            if(self.wgpu_config.prog_settings.genPerFrame > 1){
+                                self.wgpu_config.prog_settings.genPerFrame -= 1;
                             } else {
                                 self.generations += 10.0;
                             }
@@ -590,8 +607,8 @@ impl Client {
                     //         if(self.generations < 0.0){
                     //             self.generations = 0.0;
                     //         }
-                            if self.genPerFrame < 214 {
-                                self.genPerFrame += 1;
+                            if self.wgpu_config.prog_settings.genPerFrame < 214 {
+                                self.wgpu_config.prog_settings.genPerFrame += 1;
                             }
                             return true;
                         },
@@ -665,7 +682,7 @@ impl Client {
         //     }
         // }
         if self.toggle {
-            for i in 0..self.genPerFrame {
+            for i in 0..self.wgpu_config.prog_settings.genPerFrame {
                 self.wgpu_prog.shader_prog.compute(&self.wgpu_config);
                 self.generation += 1;
             }
@@ -727,7 +744,7 @@ impl Client {
             render_pass.set_vertex_buffer(0, self.wgpu_prog.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.wgpu_prog.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            render_pass.draw_indexed(0..6 as u32, 0, 0..wgpu_prog::particles as u32); // 640000
+            render_pass.draw_indexed(0..6 as u32, 0, 0..self.wgpu_config.prog_settings.particles as u32); // 640000
         }
     
         self.wgpu_config.queue.submit(std::iter::once(encoder.finish()));
@@ -755,8 +772,8 @@ impl Client {
                 println!("Elapsed Time: {} seconds", time_passed);
                 println!("Elapsed Time(Sim): {} seconds, % Real Speed: {}", sim_time_passed, sim_speed);
                 println!("20 Sec Proj: {}:{}:{}", (twsp/3600.0) as i32, ((twsp/60.0)%60.0) as i32, twsp%60.0);
-                println!("Particles: {}", wgpu_prog::particles);
-                println!("Generations/Frame: {}", self.genPerFrame as f32);
+                println!("Particles: {}", self.wgpu_config.prog_settings.particles);
+                println!("Generations/Frame: {}", self.wgpu_config.prog_settings.genPerFrame as f32);
                 println!("Scale: {}, (xOff, yOff): ({}, {})", self.scale as f32, self.xOff, self.yOff);
                 // println!("Height: {}", self.temp as f32);
                 self.prevGen = self.generation;

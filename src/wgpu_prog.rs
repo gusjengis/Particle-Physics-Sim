@@ -6,8 +6,7 @@ use crate::wgpu_config::*;
 
 use wgpu::util::DeviceExt;
 
-const p_mult: usize = 782;//5;
-pub const particles: usize = 256*p_mult;//11100000;
+const p_mult: usize = 1;//5;
 
 pub const VERTICES: &[Vertex] = &[
     Vertex { position: [1.0, 1.0, 0.0] }, // 0 - Top Right
@@ -177,14 +176,14 @@ pub struct WGPUComputeProg {
 impl WGPUComputeProg {
     pub fn new(config: &WGPUConfig) -> Self {
         // Create empty arrays for particle data
-        let mut pos = vec![0.0 as f32; particles*2];
-        let mut vel = vec![0.0 as f32; particles*2];
-        let mut radii = vec![0.0 as f32; particles];
-        let mut color = vec![0.0 as f32; particles*3];
+        let mut pos = vec![0.0 as f32; config.prog_settings.particles*2];
+        let mut vel = vec![0.0 as f32; config.prog_settings.particles*2];
+        let mut radii = vec![0.0 as f32; config.prog_settings.particles];
+        let mut color = vec![0.0 as f32; config.prog_settings.particles*3];
         
         // Setup initial state, Fill with random values
         let mut rng = rand::thread_rng();
-        let max_rad = 0.2/p_mult as f32;
+        let max_rad = 0.1/p_mult as f32;
         let max_vel = 4.0;
         let max_pos = 2.0;
         for i in 0..pos.len() {
@@ -276,7 +275,7 @@ impl WGPUComputeProg {
             compute_pass.set_bind_group(2, &self.vel_buf_buffer.bind_group, &[]);     
 
             // Dispatch the compute shader
-            compute_pass.dispatch_workgroups(particles as u32/256, 1, 1);
+            compute_pass.dispatch_workgroups(config.prog_settings.particles as u32/256, 1, 1);
 
             // You can also set other compute pass options, such as memory barriers and synchronization
 
