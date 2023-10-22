@@ -166,6 +166,8 @@ pub struct WGPUComputeProg {
     pub vel_buf_buffer: BufferUniform,
     pub radii_buffer: BufferUniform,
     pub color_buffer: BufferUniform,
+    pub bond_buffer: BufferUniform,
+    pub bond_info_buffer: BufferUniform,
     pub compute_pipeline: wgpu::ComputePipeline,
     pub compute_pipeline2: wgpu::ComputePipeline,
     // shader1: wgpu::ShaderModule,
@@ -176,33 +178,89 @@ pub struct WGPUComputeProg {
 impl WGPUComputeProg {
     pub fn new(config: &WGPUConfig) -> Self {
         // Create empty arrays for particle data
-        let mut pos = vec![0.0 as f32; config.prog_settings.particles*2];
-        let mut vel = vec![0.0 as f32; config.prog_settings.particles*2];
-        let mut radii = vec![0.0 as f32; config.prog_settings.particles];
-        let mut color = vec![0.0 as f32; config.prog_settings.particles*3];
+        let p_count = config.prog_settings.particles;
+        let mut pos = vec![0.0 as f32; p_count*2];
+        let mut vel = vec![0.0 as f32; p_count*2];
+        let mut radii = vec![0.0 as f32; p_count];
+        let mut color = vec![0.0 as f32; p_count*3];
         
         // Setup initial state, Fill with random values
         let mut rng = rand::thread_rng();
-        let max_rad = 0.1/p_mult as f32;
-        let max_vel = 4.0;
+        let max_rad = config.prog_settings.max_radius;
+        let min_rad = config.prog_settings.min_radius;
+        let max_vel = config.prog_settings.max_init_velocity;
         let max_pos = 2.0;
-        for i in 0..pos.len() {
-            pos[i] = rng.gen_range(-max_pos..max_pos);
-            vel[i] = rng.gen_range(-max_vel..max_vel);
+        for i in 0..p_count {
+            pos[i*2] = rng.gen_range(-max_pos..max_pos);
+            // vel[i*2] = rng.gen_range(-max_vel..max_vel);
+            pos[i*2+1] = rng.gen_range(-max_pos..max_pos);
+            // vel[i*2+1] = rng.gen_range(-max_vel..max_vel);
         }
         for i in 0..radii.len() as usize {
-            radii[i] = rng.gen_range(max_rad/5.0..max_rad);
+            radii[i] = rng.gen_range(min_rad..max_rad);
         }
         for i in 0..color.len() as usize {
             color[i] = rng.gen_range(0.1..1.0);
         }
-        // Convert arrays to GPU buffers
+        // Initialize Bonds
+        let MAX_BONDS = 10;
+        let mut bonds = vec![-1; p_count*MAX_BONDS];
+        for i in 0..p_count {
+            let mut col_num = 0;
+            for j in 0..p_count {
+                if j != i {
+                    if ((pos[j*2] - pos[i*2]).powf(2.0) + (pos[j*2+1] - pos[i*2+1]).powf(2.0)).powf(0.5) < radii[i] + radii[j] {
+                        if bonds[i*MAX_BONDS+col_num] == -1 && col_num < MAX_BONDS {
+                            bonds[i*MAX_BONDS+col_num] = j as i32; 
+                            col_num += 1;
 
+
+                        }
+                        
+                    }
+                }
+            }
+        }
+        let mut bond_info = vec![-1; config.prog_settings.particles*2];
+        let mut index = 0;
+        for i in 0..p_count {
+            let start = index;
+            let mut length = 0;
+            for j in 0..MAX_BONDS {
+                if bonds[i*MAX_BONDS+j] != -1 {
+                    length += 1;
+                    index += 1;
+                }
+            }
+            if length > 0 {
+                bond_info[i*2] = start as i32;
+                bond_info[i*2+1] = length as i32;
+            } else {
+                bond_info[i*2] = -1;
+                bond_info[i*2+1] = -1;
+            }
+        }
+        bonds = bonds.into_iter().filter(|num| *num != -1).collect();
+        // Print Bonds
+        // for i in 0..p_count{
+        //     if bond_info[i*2] != -1 {
+        //         println!("\nStart: {}, Length: {}", bond_info[i*2], bond_info[i*2+1]);
+        //         print!("Bonds: ");
+        //         for j in bond_info[i*2]..bond_info[i*2]+bond_info[i*2+1] {
+        //             print!("{}, ", bonds[j as usize]);
+        //         }
+        //         print!("\n");
+        //     }
+        // }
+
+        // Convert arrays to GPU buffers
         let pos_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&pos), "Position Buffer".to_string(), 0);
         let vel_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&vel), "Velocity Buffer".to_string(), 0);
         let vel_buf_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&vel), "Velocity Buffer".to_string(), 0);
         let radii_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&radii), "Radii Buffer".to_string(), 0);
         let color_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&color), "Color Buffer".to_string(), 0);
+        let bond_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&bonds), "Bond Buffer".to_string(), 0);
+        let bond_info_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&bond_info), "Bond Info Buffer".to_string(), 0);
 
         // let time_uniform = Uniform::new(&config.device, bytemuck::cast_slice(&[0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32]), "Timestamp_Uniform".to_string(), 1);
         //create shaders
@@ -225,7 +283,7 @@ impl WGPUComputeProg {
 
         let compute_pipeline_layout2 = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Collision compute"),
-            bind_group_layouts: &[&pos_buffer.bind_group_layout, &vel_buffer.bind_group_layout, &radii_buffer.bind_group_layout, &vel_buf_buffer.bind_group_layout, &color_buffer.bind_group_layout],
+            bind_group_layouts: &[&pos_buffer.bind_group_layout, &vel_buffer.bind_group_layout, &radii_buffer.bind_group_layout, &vel_buf_buffer.bind_group_layout, &bond_buffer.bind_group_layout, &bond_info_buffer.bind_group_layout],
             push_constant_ranges: &[]
         });
         //create pipeline
@@ -250,6 +308,8 @@ impl WGPUComputeProg {
             vel_buf_buffer,
             radii_buffer,
             color_buffer,
+            bond_buffer,
+            bond_info_buffer,
             // time_uniform,
             compute_pipeline,
             compute_pipeline2
@@ -300,7 +360,8 @@ impl WGPUComputeProg {
             compute_pass.set_bind_group(1, &self.vel_buffer.bind_group, &[]);     
             compute_pass.set_bind_group(2, &self.radii_buffer.bind_group, &[]);   
             compute_pass.set_bind_group(3, &self.vel_buf_buffer.bind_group, &[]);     
-            compute_pass.set_bind_group(4, &self.color_buffer.bind_group, &[]);     
+            compute_pass.set_bind_group(4, &self.bond_buffer.bind_group, &[]);     
+            compute_pass.set_bind_group(5, &self.bond_info_buffer.bind_group, &[]);     
 
 
             // Dispatch the compute shader

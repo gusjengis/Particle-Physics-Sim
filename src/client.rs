@@ -648,7 +648,7 @@ impl Client {
         // if(!self.HL){
         //     time = 0;
         // }
-        
+        // let first_pos = self.wgpu_config.queue.read_buffer();
         self.wgpu_prog.dim_uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
             &[self.wgpu_config.size.width as f32,
               0.0 as f32, //time as f32, 

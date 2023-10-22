@@ -20,9 +20,9 @@ target_arch = "wasm32"
 rustflags = [  "-C", "link-arg=-s",  "-C", "link-arg=--no-entry",  "-C", "link-arg=--export-table",  "-C", "link-arg=--import-memory",  "-C", "link-arg=--allow-undefined"]#"--cfg=web_sys_unstable_apis",
 
 [dependencies]
-imgui = "0.11.0"
-imgui-wgpu = "0.24.0"
-imgui-winit-support = "0.11.0"
+# imgui = "0.11.0"
+# imgui-wgpu = "0.24.0"
+# imgui-winit-support = "0.11.0"
 cfg-if = "1"
 winit = "0.28.3"
 env_logger = "0.10.0"
