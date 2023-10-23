@@ -2,7 +2,8 @@
 @group(1) @binding(0) var<storage, read_write> velocities: array<vec2<f32>>;
 @group(2) @binding(0) var<storage, read_write> radii: array<f32>;
 @group(3) @binding(0) var<storage, read_write> velocities_buf: array<vec2<f32>>;
-@group(4) @binding(0) var<storage, read_write> colors: array<vec2<f32>>;
+@group(4) @binding(0) var<storage, read_write> bonds: array<i32>;
+@group(5) @binding(0) var<storage, read_write> bond_info: array<vec2<i32>>;
 
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -28,48 +29,41 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 // Calculate the force based on the overlap and the stiffness constant
                 let force: vec2<f32> = stiffness * overlap * normal;
 
+                
+                let relVel: vec2<f32> = velocities_buf[id] - velocities_buf[i];
+                let tangent: vec2<f32> = normalize(vec2(-normal.y, normal.x));
+                let tangentialVelocity: f32 = dot(relVel, tangent);
+
+                let frictionForce: vec2<f32> = 0.2 * length(force) * tangentialVelocity * tangent;
+                let cappedFrictionForce: vec2<f32> = vec2(clamp(frictionForce.x, -10.0, 10.0), clamp(frictionForce.y, -10.0, 10.0));  // Limit magnitude
                 // Apply the force to the velocities (assuming equal masses for simplicity)
                 let mass1: f32 = 3.14159265 * radii[id] * radii[id];
                 let mass2: f32 = 3.14159265 * radii[i] * radii[i];
-
-            // Calculate adjusted velocities based on masses
-                velocities_buf[id] = velocities_buf[id] - (2.0 * mass2 / (mass1 + mass2)) * damping * force;
-                // velocities_buf[i] = velocities_buf[i] + (2.0 * mass1 / (mass1 + mass2)) * damping * force;
-                // velocities_buf[i] = velocities_buf[i] + damping * force;
-                // colors[id] = max(colors[id], colors[i]);
-                // colors[i] = max(colors[id], colors[i]);
+                velocities_buf[id] = velocities_buf[id] - (2.0 * mass2 / (mass1 + mass2)) * damping * (force + cappedFrictionForce);
             }
+        }
+    }
+
+    let start = bond_info[id].x;
+    let length = bond_info[id].y;
+    if(start != -1){
+        for(var i = u32(start); i<u32(start+length); i++){
+            let bond_id: i32 = bonds[i];
+            let dist: f32 = length(positions[bond_id] - positions[id]);
+            let ideal_length: f32 = radii[id] + radii[bond_id];
+            let displacement: f32 = ideal_length - dist;
+            let spring_force: vec2<f32> = stiffness/100.0 * displacement * normalize(positions[bond_id] - positions[id]);
+            let mass1: f32 = 3.14159265 * radii[id] * radii[id];
+            let mass2: f32 = 3.14159265 * radii[bond_id] * radii[bond_id];
+            velocities_buf[id] -= (spring_force / mass1) * damping;
         }
     }
 
     let pos = positions[id];
     let rad = radii[id];
     let elasticity = 0.5;
+    let anti_stick_coating = 0.01;
     let xW = 2.0*16.0/11.0;
-    // if pos.x+rad > xW {
-    //     let overlap: f32 = (pos.x + rad) - xW;
-    //     let force: vec2<f32> = vec2(-stiffness * overlap, 0.0);
-    //     velocities_buf[id] += damping * force;
-    //     positions[id].x = xW - rad;
-    // } else if pos.x-rad < -xW {
-    //     let overlap: f32 = xW + (pos.x - rad);
-    //     let force: vec2<f32> = vec2(stiffness * overlap, 0.0);
-    //     velocities_buf[id] += damping * force;
-    //     positions[id].x = -xW + rad;
-    // }
-    // if pos.y+rad > 2.0 {
-    //     let overlap: f32 = (pos.y + rad) - 2.0;
-    //     let force: vec2<f32> = vec2(0.0, -stiffness * overlap);
-    //     velocities_buf[id] += damping * force;
-    //     positions[id].y = 2.0 - rad;
-    // } else if pos.y-rad < -2.0 {
-    //     let overlap: f32 = (radii[id]) - length(vec2(positions[id].x, -2.0) - positions[id]);
-    //     let next_pos = positions[id] + velocities[id] * deltaTime;
-    //     let wall_int = (abs(positions[id].y - 2.0)/(positions[id].y - next_pos.y))*next_pos;
-    //     let normal: vec2<f32> = normalize(cross(vec3(0.0, 0.0, 1.0), vec3(wall_int, 0.0)).xy);
-    //     let force: vec2<f32> = stiffness * overlap * normal;
-    //     velocities_buf[id] = velocities_buf[id] - damping * force;
-    // }
     if pos.x+rad > xW {
         velocities_buf[id] = vec2(-velocities_buf[id].x, velocities_buf[id].y)*elasticity;
         positions[id] = vec2(xW-rad, pos.y);
@@ -79,7 +73,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
     if pos.y+rad > 2.0 {
         velocities_buf[id] = vec2(velocities_buf[id].x, -velocities_buf[id].y)*elasticity;
-        positions[id] = vec2(pos.x, 2.0-rad);
+        positions[id] = vec2(pos.x, 2.0-rad - anti_stick_coating);
     } else if pos.y-rad < -2.0 {
         velocities_buf[id] = vec2(velocities_buf[id].x, -velocities_buf[id].y)*elasticity;
         positions[id] = vec2(pos.x, -2.0+rad);
