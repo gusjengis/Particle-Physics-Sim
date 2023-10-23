@@ -189,11 +189,14 @@ impl WGPUComputeProg {
         let max_rad = config.prog_settings.max_radius;
         let min_rad = config.prog_settings.min_radius;
         let max_vel = config.prog_settings.max_init_velocity;
-        let max_pos = 2.0;
+        let workgroups = config.prog_settings.workgroups as f32;
+        let max_pos_y = 20.0;
+        let max_pos_x = 20.0;
+        let width = 25.0 as f32;
         for i in 0..p_count {
-            pos[i*2] = rng.gen_range(-max_pos..max_pos);
+            pos[i*2] = (i as f32%width)/max_pos_x - width/max_pos_x/2.0;//rng.gen_range(-max_pos..max_pos);//
             // vel[i*2] = rng.gen_range(-max_vel..max_vel);
-            pos[i*2+1] = rng.gen_range(-max_pos..max_pos);
+            pos[i*2+1] = (i as f32/width)/max_pos_y;//rng.gen_range(-max_pos..max_pos);
             // vel[i*2+1] = rng.gen_range(-max_vel..max_vel);
         }
         for i in 0..radii.len() as usize {
@@ -210,13 +213,12 @@ impl WGPUComputeProg {
             for j in 0..p_count {
                 if j != i {
                     if ((pos[j*2] - pos[i*2]).powf(2.0) + (pos[j*2+1] - pos[i*2+1]).powf(2.0)).powf(0.5) < radii[i] + radii[j] {
-                        if bonds[i*MAX_BONDS+col_num] == -1 && col_num < MAX_BONDS {
+                        if col_num < MAX_BONDS && bonds[i*MAX_BONDS+col_num] == -1 {
                             bonds[i*MAX_BONDS+col_num] = j as i32; 
                             col_num += 1;
-
-
-                        }
-                        
+                        } else if col_num == MAX_BONDS{
+                            break;
+                        }                        
                     }
                 }
             }
@@ -365,7 +367,7 @@ impl WGPUComputeProg {
 
 
             // Dispatch the compute shader
-            compute_pass.dispatch_workgroups(p_mult as u32, 1, 1);
+            compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
 
             // You can also set other compute pass options, such as memory barriers and synchronization
 
