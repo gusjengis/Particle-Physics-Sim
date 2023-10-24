@@ -168,6 +168,7 @@ pub struct WGPUComputeProg {
     pub color_buffer: BufferUniform,
     pub bond_buffer: BufferUniform,
     pub bond_info_buffer: BufferUniform,
+    pub col_buffer: BufferUniform,
     pub compute_pipeline: wgpu::ComputePipeline,
     pub compute_pipeline2: wgpu::ComputePipeline,
     // shader1: wgpu::ShaderModule,
@@ -205,6 +206,13 @@ impl WGPUComputeProg {
         for i in 0..color.len() as usize {
             color[i] = rng.gen_range(0.1..1.0);
         }
+        // Initialize Collision Sections
+        let vert_bound = 2.0;
+        let hor_bound = vert_bound*16.0/11.0;
+        let coll_grid_w = 30;
+        let coll_grid_h = 30;
+        let coll_section_size = 50;
+        let mut col_sec = vec![-1 as i32; coll_grid_w*coll_grid_h*coll_section_size];
         // Initialize Bonds
         let MAX_BONDS = 10;
         let mut bonds = vec![-1; p_count*MAX_BONDS];
@@ -222,7 +230,28 @@ impl WGPUComputeProg {
                     }
                 }
             }
+            let sec_id = ((pos[i*2+1] + vert_bound)/(2.0*vert_bound)*coll_grid_h as f32) as usize * coll_grid_w as usize + (((pos[i*2] + hor_bound)/(2.0*hor_bound)) * coll_grid_w as f32) as usize;
+            for k in coll_section_size*sec_id..coll_section_size*sec_id+coll_section_size {
+                if(col_sec[k] == -1) {
+                    col_sec[k] = i as i32;
+                    break;
+                }
+            }
         }
+        let mut point_count = 0;
+        for i in 0..coll_grid_h*coll_grid_w {
+            let x = i%coll_grid_w;
+            let y = i/coll_grid_h;
+            print!("Section {}({}, {}): ", i, x, y);
+            for j in 0..coll_section_size {
+                if col_sec[i*coll_section_size+j] != -1 {
+                    print!("{},", col_sec[i*coll_section_size+j]);  
+                    point_count += 1;  
+                }
+            }
+            print!("\n");
+        }
+        println!("Total Points: {}", point_count);
         let mut bond_info = vec![-1; config.prog_settings.particles*2];
         let mut index = 0;
         for i in 0..p_count {
@@ -243,6 +272,7 @@ impl WGPUComputeProg {
             }
         }
         bonds = bonds.into_iter().filter(|num| *num != -1).collect();
+
         // Print Bonds
         // for i in 0..p_count{
         //     if bond_info[i*2] != -1 {
@@ -263,7 +293,8 @@ impl WGPUComputeProg {
         let color_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&color), "Color Buffer".to_string(), 0);
         let bond_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&bonds), "Bond Buffer".to_string(), 0);
         let bond_info_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&bond_info), "Bond Info Buffer".to_string(), 0);
-
+        let col_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&col_sec), "Collision Buffer".to_string(), 0);
+        
         // let time_uniform = Uniform::new(&config.device, bytemuck::cast_slice(&[0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32]), "Timestamp_Uniform".to_string(), 1);
         //create shaders
         let compute_shader = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -279,13 +310,13 @@ impl WGPUComputeProg {
         //create pipeline layout
         let compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("LOM compute"),
-            bind_group_layouts: &[&pos_buffer.bind_group_layout, &vel_buffer.bind_group_layout, &vel_buf_buffer.bind_group_layout],
+            bind_group_layouts: &[&pos_buffer.bind_group_layout, &vel_buffer.bind_group_layout, &vel_buf_buffer.bind_group_layout, &col_buffer.bind_group_layout],
             push_constant_ranges: &[]
         });
 
         let compute_pipeline_layout2 = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Collision compute"),
-            bind_group_layouts: &[&pos_buffer.bind_group_layout, &vel_buffer.bind_group_layout, &radii_buffer.bind_group_layout, &vel_buf_buffer.bind_group_layout, &bond_buffer.bind_group_layout, &bond_info_buffer.bind_group_layout],
+            bind_group_layouts: &[&pos_buffer.bind_group_layout, &vel_buffer.bind_group_layout, &radii_buffer.bind_group_layout, &vel_buf_buffer.bind_group_layout, &bond_buffer.bind_group_layout, &bond_info_buffer.bind_group_layout, &col_buffer.bind_group_layout],
             push_constant_ranges: &[]
         });
         //create pipeline
@@ -312,6 +343,7 @@ impl WGPUComputeProg {
             color_buffer,
             bond_buffer,
             bond_info_buffer,
+            col_buffer,
             // time_uniform,
             compute_pipeline,
             compute_pipeline2
@@ -335,6 +367,7 @@ impl WGPUComputeProg {
             compute_pass.set_bind_group(0, &self.pos_buffer.bind_group, &[]);
             compute_pass.set_bind_group(1, &self.vel_buffer.bind_group, &[]);     
             compute_pass.set_bind_group(2, &self.vel_buf_buffer.bind_group, &[]);     
+            compute_pass.set_bind_group(3, &self.col_buffer.bind_group, &[]);     
 
             // Dispatch the compute shader
             compute_pass.dispatch_workgroups(config.prog_settings.particles as u32/256, 1, 1);
@@ -364,6 +397,7 @@ impl WGPUComputeProg {
             compute_pass.set_bind_group(3, &self.vel_buf_buffer.bind_group, &[]);     
             compute_pass.set_bind_group(4, &self.bond_buffer.bind_group, &[]);     
             compute_pass.set_bind_group(5, &self.bond_info_buffer.bind_group, &[]);     
+            compute_pass.set_bind_group(6, &self.col_buffer.bind_group, &[]);     
 
 
             // Dispatch the compute shader

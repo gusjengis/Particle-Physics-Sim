@@ -10,7 +10,7 @@ pub struct Settings {
 impl Settings {
     pub fn new() -> Self {
         let genPerFrame = 1;
-        let workgroups = 3;
+        let workgroups = 2;
         //particle settings
         let max_radius = 0.1/3.2;
         let min_radius = max_radius/1.7;
