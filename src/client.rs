@@ -269,7 +269,6 @@ impl Client {
             let windowDim = self.wgpu_config.size;
             // let dim = &self.wgpu_prog.shader_prog.tex2.dimensions;
             let int_scale = self.scale as f32;
-            
 
             self.wgpu_prog.dim_uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
                 &[self.wgpu_config.size.width as f32,
@@ -278,7 +277,7 @@ impl Client {
                   self.wgpu_config.size.height as f32,
                   self.xOff as f32,
                   self.yOff as f32,
-                  self.scale as f32,  
+                  self.scale as f32,
                   self.dark as f32]
             ));
 
@@ -333,11 +332,11 @@ impl Client {
                     }
                     _ => {}
                 }
-                if(self.scale < 0.5){ 
-                    self.scale = 0.5; 
-                    self.xOff /= ((2 as f32).powf(mY));
-                    self.yOff /= ((2 as f32).powf(mY));
-                }
+                // if(self.scale < 0.5){ 
+                //     self.scale = 0.5; 
+                //     self.xOff /= ((2 as f32).powf(mY));
+                //     self.yOff /= ((2 as f32).powf(mY));
+                // }
                 // if(self.temp > self.scale as f32 - 1.0){
                 //     self.temp = self.scale as f32 - 1.0;
                 // }
@@ -345,7 +344,7 @@ impl Client {
                 //     self.temp = 0.0;
                 // }
                 return true;
-
+                
             },
             WindowEvent::CursorMoved { position, .. } => {
                 let delta = (position.x as i32 - self.cursor_pos.0, position.y as i32 - self.cursor_pos.1);
@@ -737,6 +736,7 @@ impl Client {
             render_pass.set_bind_group(1, &self.wgpu_prog.shader_prog.pos_buffer.bind_group, &[]);
             render_pass.set_bind_group(2, &self.wgpu_prog.shader_prog.radii_buffer.bind_group, &[]);
             render_pass.set_bind_group(3, &self.wgpu_prog.shader_prog.color_buffer.bind_group, &[]);
+            render_pass.set_bind_group(4, &self.wgpu_prog.shader_prog.mov_buffers.bind_group, &[]);
             // render_pass.set_bind_group(2, &self.wgpu_prog.time_uniform.bind_group, &[]);
             // render_pass.set_bind_group(2, &self.wgpu_prog.tex2.diffuse_bind_group, &[]);
 

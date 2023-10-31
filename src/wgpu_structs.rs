@@ -454,6 +454,62 @@ impl BufferUniform {
         
 }
 
+pub struct BufferGroup {
+    label: String,
+    buffers: Vec<wgpu::Buffer>,
+    pub bind_group_layout: wgpu::BindGroupLayout,
+    pub bind_group: wgpu::BindGroup,
+}
+
+impl BufferGroup {
+    pub fn new(device: &wgpu::Device, contents: Vec<&[u8]>, label: String) -> Self {
+        let mut buffers = vec![];
+        for i in 0..contents.len() {
+            buffers.push(device.create_buffer_init(
+                &wgpu::util::BufferInitDescriptor {
+                    label: Some(&label),
+                    contents: contents[i],
+                    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::UNIFORM |wgpu::BufferUsages::COPY_DST,
+                }
+            ));
+        }
+        let mut layout_entries = vec![];
+        let mut entries = vec![];
+        for i in 0..contents.len() {
+            layout_entries.push(wgpu::BindGroupLayoutEntry {
+                binding: i as u32,
+                visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX_FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage {read_only: false},
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            });
+            entries.push(wgpu::BindGroupEntry {
+                binding: i as u32,
+                resource: buffers[i].as_entire_binding(),
+            });
+        }
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &layout_entries,
+            label: Some(&label),
+        });
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &bind_group_layout,
+            entries: &entries,
+            label: Some(&label),
+        });
+
+        Self {
+            label: label,
+            buffers: buffers, 
+            bind_group_layout: bind_group_layout, 
+            bind_group: bind_group,
+        }
+    }
+}
+
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     1.0, 0.0, 0.0, 0.0,
