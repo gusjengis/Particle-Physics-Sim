@@ -6,14 +6,19 @@ use crate::wgpu_prog;
 
 use crate::wgpu_prog::WGPUProg;
 use cgmath::Angle;
+use egui_demo_lib::DemoWindows;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop, EventLoopProxy},
     window::WindowBuilder, dpi::PhysicalSize,
 };
+use std::iter;
 use cgmath::*;
 use winit_fullscreen;
 use winit_fullscreen::WindowFullScreen;
+
+use egui_winit_platform::{Platform, PlatformDescriptor};
+use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 
 use chrono::prelude::*;
 
@@ -35,7 +40,6 @@ pub struct Client {
     generation: i32,
     xOff: f32,
     yOff: f32,
-    scale: f32,
     middle: bool,
     dark: f32,
     W: bool,
@@ -47,6 +51,8 @@ pub struct Client {
     B: bool,
     N: bool,
     init: bool,
+    pub platform: Platform,
+    egui_rpass: RenderPass
 }
 
 impl Client {
@@ -55,14 +61,13 @@ impl Client {
         let window = WindowBuilder::new()
             .build(&event_loop)
             .unwrap();
-        // window.set_cursor_visible(false);
         window.set_title("DEM Physics");
 
         let canvas = windowInit::Canvas::new(window);
-        let wgpu_config = WGPUConfig::new(&canvas).await;//pollster::block_on(
+        let mut wgpu_config = WGPUConfig::new(&canvas).await;
         let last_draw = Local::now();
         let log_framerate = false;
-        let wgpu_prog = WGPUProg::new(&wgpu_config);
+        let wgpu_prog = WGPUProg::new(&mut wgpu_config);
         let start_time = Local::now();
         let bench_start_time = Local::now();
         let generations = 100.0;//256.1;
@@ -75,7 +80,6 @@ impl Client {
         let generation = 0;
         let xOff = 0.0;
         let yOff = 0.0;
-        let scale = 0.5;
         let middle = false;
         let dark = 0.0;
         let W = false;
@@ -87,6 +91,21 @@ impl Client {
         let B = false;
         let N = false;
         let init = false;
+        
+        // UI Setup
+
+        let size = canvas.size;
+        let platform = Platform::new(PlatformDescriptor {
+            physical_width: size.width,
+            physical_height: size.height,
+            scale_factor: canvas.window.scale_factor(),
+            font_definitions: egui::FontDefinitions::default(),
+            style: Default::default(),
+        });
+        // platform.context().set_pixels_per_point(platform.context().pixels_per_point()*4.0);
+        platform.context().set_pixels_per_point(2.0);
+        let mut egui_rpass = RenderPass::new(&wgpu_config.device, wgpu_config.surface_format, 1);
+
         let mut client = Client {
             canvas,
             wgpu_config,
@@ -105,7 +124,6 @@ impl Client {
             generation,
             xOff,
             yOff,
-            scale,
             middle,
             dark,
             W,
@@ -117,20 +135,22 @@ impl Client {
             B,
             N,
             init,
+            platform,
+            egui_rpass,
         };
 
-        //Start Event Loop
-        // client.randomize();
-        // client.computeGOLGen(true);
-        
+        event_loop.run(move |event, _, control_flow| {
+            client.platform.handle_event(&event);
+            
+            if !client.platform.captures_event(&event) {
 
-        event_loop.run(move |event, _, control_flow| match event { 
-            Event::WindowEvent {
-                ref event,
-                window_id,
-            } 
-            if window_id == client.canvas.window.id() => {
-                if !client.input(event) {
+                match event { 
+                    Event::WindowEvent {
+                        ref event,
+                        window_id,
+                    }
+                    if window_id == client.canvas.window.id() => {
+                        if !client.input(event) {
                     match event {
                     WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                     WindowEvent::Resized(physical_size) => {
@@ -145,117 +165,20 @@ impl Client {
                 }
             }}
             Event::RedrawRequested(window_id) if window_id == client.canvas.window.id() => {
-                // client.update();
                 match client.render() {
                     Ok(_) => {}
-                    // Reconfigure the surface if lost
                     Err(wgpu::SurfaceError::Lost) => client.resize(client.canvas.size.clone()),
-                    // The system is out of memory, we should probably quit
                     Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                    // All other errors (Outdated, Timeout) should be resolved by the next frame
                     Err(e) => eprintln!("{:?}", e),
                 }
             }
             Event::MainEventsCleared => {
-                // RedrawRequested will only trigger once, unless we manually
-                // request it.
                 client.canvas.window.request_redraw();
-            }
+            },
             _ => {}
-        });
-
-        return client;
+        }}});
+        
     }
-
-    // pub fn window(&self) -> &Window {
-    //     &self.window
-    // }
-
-    // fn update(&mut self) {
-    //     // remove todo!()
-    // }
-
-    // fn cursorToPixel(&self) -> Option<(u32, u32)> {
-    //     let cursor = (self.cursor_pos.0 - self.xOff as i32, self.cursor_pos.1 - self.yOff as i32);
-    //     let dim = &self.wgpu_prog.shader_prog.tex2.dimensions;
-    //     let windowDim = self.wgpu_config.size;
-    //     let int_scale = self.scale as f32;//windowDim.height/dim.1;
-    //     let xOff = ((windowDim.width as f32) - (dim.0 as f32)*(int_scale))/2.0; 
-    //     let yOff = ((windowDim.height as f32) - (dim.1 as f32)*(int_scale))/2.0;
-    //     let coords = (((dim.0 as f32)*(cursor.0 as f32-xOff )/(dim.0 * int_scale as u32) as f32) as u32, ((dim.1 as f32)*(cursor.1 as f32-yOff )/(dim.1 * int_scale as u32 ) as f32) as u32);
-    //     if(coords.0 < 0 || coords.0 > dim.0 - 1 || coords.1 < 0 || coords.1 > dim.1 - 1){
-    //         return None;
-    //     }
-    //     return Some(coords);
-    // }
-
-    // fn writeToTex(&self, pixel: (u32, u32), color: &[u8]) {
-    //     let mut texture = &self.wgpu_prog.shader_prog.tex2.texture;
-    //     let mut dimensions = &self.wgpu_prog.shader_prog.tex2.dimensions;
-    //     if(self.wgpu_prog.shader_prog.use1){
-    //         texture = &self.wgpu_prog.shader_prog.tex1.texture;
-    //         dimensions = &self.wgpu_prog.shader_prog.tex1.dimensions;
-    //     }
-    //     self.wgpu_config.queue.write_texture(
-    //         // Tells wgpu where to copy the pixel data
-    //         wgpu::ImageCopyTexture {
-    //             texture: &texture,
-    //             mip_level: 0,
-    //             origin: wgpu::Origin3d {
-    //                 x: pixel.0,
-    //                 y: pixel.1,
-    //                 z: 0
-    //             },
-    //             aspect: wgpu::TextureAspect::All,
-    //         },
-    //         // The actual pixel data
-    //         color,
-    //         // The layout of the texture
-    //         wgpu::ImageDataLayout {
-    //             offset: 0,
-    //             bytes_per_row: Some((4 * dimensions.0) as u32),
-    //             rows_per_image: Some((dimensions.1) as u32),
-    //         },
-    //         wgpu::Extent3d {
-    //             width: 1, 
-    //             height: 1,
-    //             depth_or_array_layers: 1,
-    //         }
-    //     );
-    // }
-
-    // fn randomize(&mut self){
-    //     for x in 0..self.wgpu_prog.shader_prog.tex1.dimensions.0-1 {
-    //         for y in 0..self.wgpu_prog.shader_prog.tex1.dimensions.1-1 {
-    //             let BorW = (rand::random::<f32>()).round();
-    //             if(!self.toggle){
-    //                 self.writeToTex((x, y), &[(255.0*BorW) as u8, (255.0*BorW) as u8, (255.0*BorW) as u8, (255.0*BorW) as u8]);
-    //             }
-    //         }
-    //     }
-    // }
-
-    // pub fn computeGOLGen(&mut self, force: bool){
-    //     // while(true){
-    //         // println! ("test");
-    //         // println! ("{}", self.toggle);
-
-    //         if(self.toggle && Local::now().timestamp_millis() - self.prev_gen_time.timestamp_millis() >= self.generations as i64 || force){
-    //             for i in 0..self.wgpu_config.prog_settings.genPerFrame {
-    //                 // let start = Local::now();
-
-    //                     self.wgpu_prog.shader_prog.compute(&self.wgpu_config);
-    //                     self.wgpu_prog.swap(&self.wgpu_config);
-    //                     self.prev_gen_time = Local::now();
-    //                     self.generation += 1;
-    //                 // println! ("{}", ((Local::now().timestamp_micros() - start.timestamp_micros()) as f32/1000.0));
-
-    //                 // println! ("{}", 1000.0/((Local::now().timestamp_micros() - start.timestamp_micros()) as f32/1000.0));
-
-    //             }
-    //         }
-    //     // }
-    // }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
@@ -267,8 +190,7 @@ impl Client {
             self.wgpu_config.surface.configure(&self.wgpu_config.device, &self.wgpu_config.config);
 
             let windowDim = self.wgpu_config.size;
-            // let dim = &self.wgpu_prog.shader_prog.tex2.dimensions;
-            let int_scale = self.scale as f32;
+            let int_scale = self.wgpu_config.prog_settings.scale as f32;
 
             self.wgpu_prog.dim_uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
                 &[self.wgpu_config.size.width as f32,
@@ -277,7 +199,7 @@ impl Client {
                   self.wgpu_config.size.height as f32,
                   self.xOff as f32,
                   self.yOff as f32,
-                  self.scale as f32,
+                  self.wgpu_config.prog_settings.scale as f32,
                   self.dark as f32]
             ));
 
@@ -287,34 +209,9 @@ impl Client {
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
         match event {
-            // WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Right, .. } => {
-            //     let mut coords = self.cursorToPixel();
-            //     match coords {
-            //         Some(value) => {
-            //             if(!self.toggle){
-            //                 let pixel = coords.unwrap();
-            //                 self.writeToTex(pixel, &[0 as u8, 0 as u8, 0 as u8, 0 as u8]);
-            //             }
-            //             return true;
-            //         }
-            //         None => {return true;}
-            //     }
-            // },
-            // WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. } => {
-            //     let mut coords = self.cursorToPixel();
-            //     match coords {
-            //         Some(value) => {
-            //             if(!self.toggle){
-            //                 let pixel = coords.unwrap();
-            //                 self.writeToTex(pixel, &[255 as u8, 255 as u8, 255 as u8, 255 as u8]);
-            //             }
-            //             return true;
-            //         }
-            //         None => {return true;}
-            //     }
-            // },
             WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. } => {
                 self.middle = true;
+                
                 return true;
             },
             WindowEvent::MouseInput { state: ElementState::Released, button: MouseButton::Left, .. } => {
@@ -326,23 +223,12 @@ impl Client {
                 match delta {
                     MouseScrollDelta::LineDelta(x, y) => {
                         mY = *y;
-                        self.scale = (self.scale as f32*((2 as f32).powf(mY)));
+                        self.wgpu_config.prog_settings.scale = (self.wgpu_config.prog_settings.scale as f32*((2 as f32).powf(mY)));
                         self.xOff *= ((2 as f32).powf(mY));
                         self.yOff *= ((2 as f32).powf(mY));
                     }
                     _ => {}
                 }
-                // if(self.scale < 0.5){ 
-                //     self.scale = 0.5; 
-                //     self.xOff /= ((2 as f32).powf(mY));
-                //     self.yOff /= ((2 as f32).powf(mY));
-                // }
-                // if(self.temp > self.scale as f32 - 1.0){
-                //     self.temp = self.scale as f32 - 1.0;
-                // }
-                // if(self.temp < 0.0){
-                //     self.temp = 0.0;
-                // }
                 return true;
                 
             },
@@ -350,17 +236,9 @@ impl Client {
                 let delta = (position.x as i32 - self.cursor_pos.0, position.y as i32 - self.cursor_pos.1);
                 self.cursor_pos = (position.x as i32, position.y as i32);
                 if(self.middle){
-                    // let aspect = self.wgpu_config.size.width as f32/self.wgpu_config.size.height as f32;//println!("{}", self.wgpu_config.size.width as f32/self.wgpu_config.size.height as f32);
                     self.xOff += (delta.0 as f32) as f32;
                     self.yOff += (delta.1 as f32) as f32;
                 }
-                // self.clear_color = wgpu::Color {
-                //     r: position.x as f64 / self.size.width as f64,
-                //     g: position.y as f64 / self.size.height as f64,
-                //     b: (position.x + position.y)as f64 / 2.0* self.size.width as f64,
-                //     a: 1.0,
-                // };
-                // self.cursor_uniform.updateUniform(&self.device, bytemuck::cast_slice(&[position.x as f32, position.y as f32, position.x as f32, position.y as f32]));
                 return true;
             },
             WindowEvent::KeyboardInput { input, .. } => {
@@ -379,7 +257,7 @@ impl Client {
                             ..
                         } => {
                                 // self.temp = 1.0;
-                                self.start_time = Local::now();
+                                // self.start_time = Local::now();
                                 self.toggle = !self.toggle;
                                 return true;
                             },
@@ -388,11 +266,7 @@ impl Client {
                         state: ElementState::Pressed,
                         ..
                     } => {
-                            // self.temp = 1.0;
-                            self.start_time = Local::now();
-                            self.wgpu_prog.shader_prog = WGPUComputeProg::new(&self.wgpu_config);
-                            self.toggle = false;
-                            self.generation = 0;
+                            self.reset();
                             return true;
                         },
                     KeyboardInput {
@@ -400,7 +274,7 @@ impl Client {
                         state: ElementState::Pressed,
                         ..
                     } => {
-                            self.scale = (self.scale as f32*((2 as f32).powf(1.0)));
+                            self.wgpu_config.prog_settings.scale = (self.wgpu_config.prog_settings.scale as f32*((2 as f32).powf(1.0)));
                             self.xOff *= ((2 as f32).powf(1.0));
                             self.yOff *= ((2 as f32).powf(1.0));
                             return true;
@@ -410,60 +284,11 @@ impl Client {
                         state: ElementState::Pressed,
                         ..
                     } => {
-                            self.scale = (self.scale as f32*((2 as f32).powf(-1.0)));
+                            self.wgpu_config.prog_settings.scale = (self.wgpu_config.prog_settings.scale as f32*((2 as f32).powf(-1.0)));
                             self.xOff *= ((2 as f32).powf(-1.0));
                             self.yOff *= ((2 as f32).powf(-1.0));
                             return true;
                         },
-                    // KeyboardInput {
-                    //     virtual_keycode: Some(VirtualKeyCode::G), // forward
-                    //     state: ElementState::Pressed,
-                    //     ..
-                    // } => {
-                    //         // self.G = true;
-                    //         let camera = &mut self.wgpu_prog.cam;
-                    //         let forward = camera.target - camera.eye;
-                    //         let forward_norm = forward.normalize();
-                    //         camera.eye += forward_norm * camera.speed;
-                    //         return true;
-                    //     },
-                    // KeyboardInput {
-                    //     virtual_keycode: Some(VirtualKeyCode::B), // backward
-                    //     state: ElementState::Pressed,
-                    //     ..
-                    // } => {
-                    //         let camera = &mut self.wgpu_prog.cam;
-                    //         let forward = camera.target - camera.eye;
-                    //         let forward_norm = forward.normalize();
-                    //         camera.eye -= forward_norm * camera.speed;
-                    //         return true;
-                    //     },
-                    // KeyboardInput {
-                    //     virtual_keycode: Some(VirtualKeyCode::V), // left
-                    //     state: ElementState::Pressed,
-                    //     ..
-                    // } => {
-                    //         let camera = &mut self.wgpu_prog.cam;
-                    //         let forward = camera.target - camera.eye;
-                    //         let forward_norm = forward.normalize();
-                    //         let forward_mag = forward.magnitude();
-                    //         let right = forward_norm.cross(camera.up);
-                    //         camera.eye = camera.target - (forward - right * camera.speed).normalize() * forward_mag;
-                    //         return true;
-                    //     },
-                    // KeyboardInput {
-                    //     virtual_keycode: Some(VirtualKeyCode::N), // right
-                    //     state: ElementState::Pressed,
-                    //     ..
-                    // } => {
-                    //         let camera = &mut self.wgpu_prog.cam;
-                    //         let forward = camera.target - camera.eye;
-                    //         let forward_norm = forward.normalize();
-                    //         let forward_mag = forward.magnitude();
-                    //         let right = forward_norm.cross(camera.up);
-                    //         camera.eye = camera.target - (forward + right * camera.speed).normalize() * forward_mag;
-                    //         return true;
-                    //     },
                     KeyboardInput {
                         virtual_keycode: Some(VirtualKeyCode::H),
                         state: ElementState::Pressed,
@@ -474,19 +299,14 @@ impl Client {
                             self.yOff = 0.0;
                             return true;
                         },
-                    // KeyboardInput {
-                    //     virtual_keycode: Some(VirtualKeyCode::C),
-                    //     state: ElementState::Pressed,
-                    //     ..
-                    // } => {
-                    //         // self.temp = 1.0;
-                    //         self.start_time = Local::now();
-                    //         self.wgpu_prog.shader_prog = WGPUComputeProg::new(&self.wgpu_config);
-                    //         self.toggle = false;
-                    //         self.generation = 0;
-                    //         self.wgpu_prog.shader_prog.clearTextures(&self.wgpu_config);
-                    //         return true;
-                    //     },
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::O),
+                        state: ElementState::Pressed,
+                        ..
+                    } => {
+                            self.wgpu_config.prog_settings.settings_menu = !self.wgpu_config.prog_settings.settings_menu; 
+                            return true;
+                        },
                     KeyboardInput {
                         virtual_keycode: Some(VirtualKeyCode::L),
                         state: ElementState::Pressed,
@@ -559,21 +379,6 @@ impl Client {
                             self.D = false;
                             return true;
                         },
-                    // KeyboardInput {
-                    //     virtual_keycode: Some(VirtualKeyCode::Up),
-                    //     state: ElementState::Pressed,
-                    //     ..
-                    // } => {
-                    //         let windowDim = self.wgpu_config.size;
-                    //         let dim = &self.wgpu_prog.shader_prog.tex2.dimensions;
-                    //         // let int_scale = self.scale as f32;//(windowDim.height/dim.1) as f32;
-                    //         self.temp += 1.0;
-                            
-                    //         // if(self.temp > self.scale as f32 - 1.0){
-                    //         //     self.temp = self.scale as f32 - 1.0;
-                    //         // }
-                    //         return true;
-                    //     },
                     KeyboardInput {
                         virtual_keycode: Some(VirtualKeyCode::Down),
                         state: ElementState::Pressed,
@@ -602,10 +407,6 @@ impl Client {
                         state: ElementState::Pressed,
                         ..
                     } => {
-                    //         self.generations -= 10.0;
-                    //         if(self.generations < 0.0){
-                    //             self.generations = 0.0;
-                    //         }
                             if self.wgpu_config.prog_settings.genPerFrame < 214 {
                                 self.wgpu_config.prog_settings.genPerFrame += 1;
                             }
@@ -627,27 +428,30 @@ impl Client {
         }
     }
 
+    fn reset(&mut self){
+        // self.start_time = Local::now();
+        self.wgpu_prog.shader_prog = WGPUComputeProg::new(&mut self.wgpu_config);
+        self.toggle = false;
+        self.generation = 0;
+    }
+
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        // let camera = &self.wgpu_prog.cam;
-        // let forward = camera.target - camera.eye;
-        // let xzMag = (forward.x.powf(2.0) + forward.z.powf(2.0)).powf(0.5);
-        // let xzNorm = (forward.x / xzMag, forward.z / xzMag);
-        // let angle = xzNorm.1.atan2(xzNorm.0);
-        // let move_speed = 5.0;
-        // if(self.A){ self.xOff += move_speed * angle.sin(); self.yOff -= move_speed * angle.cos(); }
-        // if(self.S){ self.xOff -= move_speed * angle.cos(); self.yOff -= move_speed * angle.sin(); }
-        // if(self.D){ self.xOff -= move_speed * angle.sin(); self.yOff += move_speed * angle.cos(); }
-        // if(self.W){ self.xOff += move_speed * angle.cos(); self.yOff += move_speed * angle.sin();}
-        
-        // if(self.xOff < -400.0) { self.xOff = 400.0;}
-        // if(self.xOff > 400.0) { self.xOff = -400.0;}
-        // if(self.yOff < -400.0) { self.yOff = 400.0;}
-        // if(self.yOff > 400.0) { self.yOff = -400.0;}
-        // let mut time = 1;
-        // if(!self.HL){
-        //     time = 0;
-        // }
-        // let first_pos = self.wgpu_config.queue.read_buffer();
+
+        // UI
+        self.platform.update_time((Local::now().timestamp_millis() - self.start_time.timestamp_millis()) as f64 / 1000.0);
+
+        let output_frame = self.wgpu_config.surface.get_current_texture().unwrap();
+        let output_view = output_frame
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        // Begin to draw the UI frame.
+        self.platform.begin_frame();
+        let needs_reset = self.wgpu_config.prog_settings.ui(&self.platform.context());
+        if needs_reset {
+            self.reset();
+        }
+
         self.wgpu_prog.dim_uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
             &[self.wgpu_config.size.width as f32,
               0.0 as f32, //time as f32, 
@@ -655,63 +459,30 @@ impl Client {
               self.temp,
               self.xOff as f32,
               self.yOff as f32,
-              self.scale as f32,
+              self.wgpu_config.prog_settings.scale as f32,
               self.dark as f32]
         ));   
 
-        // self.wgpu_prog.shader_prog.uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
-        //     &[  (Local::now().timestamp_millis() - self.start_time.timestamp_millis()) as f32, 
-        //         0 as f32, 
-        //         0 as f32, 
-        //         0 as f32
-        //     ]
-        // ));   
-
-        // self.wgpu_prog.cam.update_view_proj(&self.wgpu_config);
-        // self.wgpu_prog.cam_uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
-        //     &[self.wgpu_prog.cam.view_proj, self.wgpu_prog.cam.eye(), self.wgpu_prog.cam.target()]
-        // )); 
-        
-
-        // #[cfg(target_arch = "wasm32")] {
-        //     let w = web_sys::window().unwrap().inner_width().unwrap().as_f64().unwrap() as u32;
-        //     let h = web_sys::window().unwrap().inner_height().unwrap().as_f64().unwrap() as u32;
-        //     if(!(self.canvas.size.width == w && self.canvas.size.height == h)){
-        //         self.resize(winit::dpi::PhysicalSize::new(w,h));
-        //     }
-        // }
         if self.toggle {
             for i in 0..self.wgpu_config.prog_settings.genPerFrame {
-                self.wgpu_prog.shader_prog.compute(&self.wgpu_config);
+                self.wgpu_prog.shader_prog.compute(&mut self.wgpu_config);
                 self.generation += 1;
             }
         }
-        
-        
 
-        let output = self.wgpu_config.surface.get_current_texture()?;
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+        let full_output = self.platform.end_frame(Some(&self.canvas.window));
+        let paint_jobs = self.platform.context().tessellate(full_output.shapes);
 
-        
-        //     self.computeGOLGen(false);
-            
-        
-
-        let mut encoder = self
-            .wgpu_config.device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
+        let mut encoder = self.wgpu_config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("encoder"),
+        });
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[
-                    // This is what @location(0) in the fragment shader targets
                     Some(wgpu::RenderPassColorAttachment {
-                        view: &view,
+                        view: &output_view,
                         resolve_target: None,
                         ops: wgpu::Operations {
                             load: wgpu::LoadOp::Clear(self.wgpu_prog.clear_color),
@@ -729,26 +500,47 @@ impl Client {
                 }),
             });
 
-        //     self.wgpu_prog.shader_prog.tex1.setBinding(&self.wgpu_config, 5, false);
-
-            render_pass.set_pipeline(&self.wgpu_prog.render_pipeline); // 2.
+            render_pass.set_pipeline(&self.wgpu_prog.render_pipeline);
             render_pass.set_bind_group(0, &self.wgpu_prog.dim_uniform.bind_group, &[]);
             render_pass.set_bind_group(1, &self.wgpu_prog.shader_prog.pos_buffer.bind_group, &[]);
             render_pass.set_bind_group(2, &self.wgpu_prog.shader_prog.radii_buffer.bind_group, &[]);
             render_pass.set_bind_group(3, &self.wgpu_prog.shader_prog.color_buffer.bind_group, &[]);
             render_pass.set_bind_group(4, &self.wgpu_prog.shader_prog.mov_buffers.bind_group, &[]);
-            // render_pass.set_bind_group(2, &self.wgpu_prog.time_uniform.bind_group, &[]);
-            // render_pass.set_bind_group(2, &self.wgpu_prog.tex2.diffuse_bind_group, &[]);
-
-            // render_pass.set_bind_group(1, &self.cursor_uniform.bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.wgpu_prog.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.wgpu_prog.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            render_pass.draw_indexed(0..6 as u32, 0, 0..self.wgpu_config.prog_settings.particles as u32); // 640000
+            render_pass.draw_indexed(0..6 as u32, 0, 0..self.wgpu_config.prog_settings.particles as u32);
         }
-    
-        self.wgpu_config.queue.submit(std::iter::once(encoder.finish()));
-        output.present();
+
+        // Upload all resources for the GPU.
+        let screen_descriptor = ScreenDescriptor {
+            physical_width: self.canvas.size.width,
+            physical_height: self.canvas.size.height,
+            scale_factor: self.canvas.window.scale_factor() as f32,
+        };
+        let tdelta: egui::TexturesDelta = full_output.textures_delta;
+        self.egui_rpass
+            .add_textures(&self.wgpu_config.device, &self.wgpu_config.queue, &tdelta)
+            .expect("add texture ok");
+        self.egui_rpass.update_buffers(&self.wgpu_config.device, &self.wgpu_config.queue, &paint_jobs, &screen_descriptor);
+
+        self.egui_rpass
+            .execute(
+                &mut encoder,
+                &output_view,
+                &paint_jobs,
+                &screen_descriptor,
+                None,
+            )
+            .unwrap();
+
+        self.wgpu_config.queue.submit(iter::once(encoder.finish()));
+
+        output_frame.present();
+
+        self.egui_rpass
+            .remove_textures(tdelta)
+            .expect("remove texture ok");
 
         let now = Local::now();
         if(self.log_framerate){
@@ -774,8 +566,7 @@ impl Client {
                 println!("20 Sec Proj: {}:{}:{}", (twsp/3600.0) as i32, ((twsp/60.0)%60.0) as i32, twsp%60.0);
                 println!("Particles: {}", self.wgpu_config.prog_settings.particles);
                 println!("Generations/Frame: {}", self.wgpu_config.prog_settings.genPerFrame as f32);
-                println!("Scale: {}, (xOff, yOff): ({}, {})", self.scale as f32, self.xOff, self.yOff);
-                // println!("Height: {}", self.temp as f32);
+                println!("Scale: {}, (xOff, yOff): ({}, {})", self.wgpu_config.prog_settings.scale as f32, self.xOff, self.yOff);
                 self.prevGen = self.generation;
                 self.bench_start_time = Local::now();
                 

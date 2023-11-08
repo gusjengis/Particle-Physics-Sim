@@ -57,7 +57,7 @@ fn vs_main(
     let off = vec2(dim.xOff / aspect, -dim.yOff)/1000.0;
     out.clip_position = vec4(xy*radii_buf[instance] + center + off, 0.0, 1.0);
     out.position = in.position;
-    out.color = color_buf[instance % 16u];
+    out.color = color_buf[instance % 32u];
     out.radius = radii_buf[instance];
     out.rot = rot_buf[instance];
     out.rot_vel = rot_vel[instance];

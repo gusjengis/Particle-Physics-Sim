@@ -7,8 +7,8 @@
 // @group(2) @binding(0) var<storage, read_write> col_sec: array<i32>;
 
 const PI = 3.141592653589793238;
-const vert_bound = 8.0;
-const hor_bound = 12.0;
+// const vert_bound = 8.0;
+// const hor_bound = 12.0;
 
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -19,7 +19,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // let prev_sec_id = pointToSectionId(positions[id]);
     velocities[id] = velocities_buf[id];
     rot_vel[id] = rot_vel_buf[id];
-    positions[id] += velocities[id] * deltaTime;
+    positions[id] += velocities_buf[id] * deltaTime;
     rot[id] = (rot[id] + rot_vel[id] * deltaTime)%(2.0*PI);
     // let sec_id = pointToSectionId(positions[id]);
     // if(prev_sec_id != sec_id) {
@@ -38,10 +38,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // }
 }
 
-fn pointToSectionId(point: vec2<f32>) -> u32 {
-    let coll_grid_w = 30.0;
-    let coll_grid_h = 30.0;
-    let sec_x = u32((point.y + hor_bound)/(2.0*hor_bound) * coll_grid_w);
-    let sec_y = u32((point.y + vert_bound)/(2.0*vert_bound) * coll_grid_h);
-    return sec_y*u32(coll_grid_w) + sec_x;
-}
+// fn pointToSectionId(point: vec2<f32>) -> u32 {
+//     let coll_grid_w = 30.0;
+//     let coll_grid_h = 30.0;
+//     let sec_x = u32((point.y + hor_bound)/(2.0*hor_bound) * coll_grid_w);
+//     let sec_y = u32((point.y + vert_bound)/(2.0*vert_bound) * coll_grid_h);
+//     return sec_y*u32(coll_grid_w) + sec_x;
+// }

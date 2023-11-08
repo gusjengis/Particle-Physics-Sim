@@ -1,5 +1,5 @@
 use crate::wgpu_config::WGPUConfig;
-use wgpu::util::DeviceExt;
+use wgpu::{util::DeviceExt, BindGroupLayout, BindGroupLayoutEntry, BindGroupEntry, Buffer};
 
 
 
@@ -454,22 +454,24 @@ impl BufferUniform {
         
 }
 
-pub struct BufferGroup {
+pub struct BufferGroup{
     label: String,
-    buffers: Vec<wgpu::Buffer>,
+    layout_entries: Vec<BindGroupLayoutEntry>,
+    // entries: Vec<BindGroupEntry>,
+    buffers: Vec<Buffer>,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub bind_group: wgpu::BindGroup,
 }
 
 impl BufferGroup {
-    pub fn new(device: &wgpu::Device, contents: Vec<&[u8]>, label: String) -> Self {
+    pub fn new(device: &wgpu::Device, contents: Vec<&[u8]>, label: String,) -> Self {
         let mut buffers = vec![];
         for i in 0..contents.len() {
             buffers.push(device.create_buffer_init(
                 &wgpu::util::BufferInitDescriptor {
                     label: Some(&label),
                     contents: contents[i],
-                    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::UNIFORM |wgpu::BufferUsages::COPY_DST,
+                    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 }
             ));
         }
@@ -502,12 +504,45 @@ impl BufferGroup {
         });
 
         Self {
-            label: label,
-            buffers: buffers, 
-            bind_group_layout: bind_group_layout, 
-            bind_group: bind_group,
+            label,
+            layout_entries,
+            buffers,
+            bind_group_layout, 
+            bind_group,
         }
     }
+
+    // pub fn setReadOnly(&mut self, bufferID: usize, readonly: bool){
+    //     self.layout_entries[bufferID] = wgpu::BindGroupLayoutEntry {
+    //         binding: bufferID as u32,
+    //         visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX_FRAGMENT,
+    //         ty: wgpu::BindingType::Buffer {
+    //             ty: wgpu::BufferBindingType::Storage {read_only: readonly},
+    //             has_dynamic_offset: false,
+    //             min_binding_size: None,
+    //         },
+    //         count: None,
+    //     };
+    // }
+    
+    // pub fn updateBindGroup(&mut self, device: &wgpu::Device){
+    //     let mut entries = vec![];
+    //     for i in 0..self.layout_entries.len() {
+    //         entries.push(wgpu::BindGroupEntry {
+    //             binding: i as u32,
+    //             resource: self.buffers[i].as_entire_binding(),
+    //         });
+    //     }
+    //     self.bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+    //         entries: &self.layout_entries,
+    //         label: Some(&self.label),
+    //     });
+    //     self.bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+    //         layout: &self.bind_group_layout,
+    //         entries: &entries,
+    //         label: Some(&self.label),
+    //     });
+    // }
 }
 
 #[rustfmt::skip]

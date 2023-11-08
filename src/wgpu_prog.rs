@@ -1,5 +1,6 @@
 use std::fmt::DebugTuple;
 
+use bytemuck::bytes_of;
 use rand::Rng;
 use crate::settings;
 // use crate::
@@ -36,7 +37,7 @@ pub struct WGPUProg {
 }
 
 impl WGPUProg {
-    pub fn new(config: &WGPUConfig) -> Self {
+    pub fn new(config: &mut WGPUConfig) -> Self {
         let mut shader_prog = WGPUComputeProg::new(config);
 
         let clear_color = wgpu::Color {
@@ -171,6 +172,7 @@ pub struct WGPUComputeProg {
     pub color_buffer: BufferUniform,
     pub bond_buffer: BufferUniform,
     pub bond_info_buffer: BufferUniform,
+    pub collision_settings: Uniform,
     // pub col_buffer: BufferUniform,
     pub compute_pipeline: wgpu::ComputePipeline,
     pub compute_pipeline2: wgpu::ComputePipeline,
@@ -180,7 +182,7 @@ pub struct WGPUComputeProg {
 
 
 impl WGPUComputeProg {
-    pub fn new(config: &WGPUConfig) -> Self {
+    pub fn new(config: &mut WGPUConfig) -> Self {
         // Create empty arrays for particle data
         let p_count = config.prog_settings.particles;
         let mut pos = vec![0.0 as f32; p_count*2];
@@ -194,27 +196,45 @@ impl WGPUComputeProg {
         let mut rng = rand::thread_rng();
         let max_rad = config.prog_settings.max_radius;
         let min_rad = config.prog_settings.min_radius;
-        let max_vel = config.prog_settings.max_init_velocity;
+        let max_h_vel = config.prog_settings.max_h_velocity;
+        let min_h_vel = config.prog_settings.min_h_velocity;
+        let max_v_vel = config.prog_settings.max_v_velocity;
+        let min_v_vel = config.prog_settings.min_v_velocity;
         let workgroups = config.prog_settings.workgroups as f32;
         let max_pos_y = 20.0;
         let max_pos_x = 20.0;
+        let mut distance = 0.0;
         for i in 0..p_count {
-            match config.prog_settings.setup {
-                settings::Intial_Positions::Tower => {
-                    pos[i*2] = (i as f32%config.prog_settings.tower_width)/max_pos_x - config.prog_settings.tower_width/max_pos_x/2.0;
-                    pos[i*2+1] = (i as f32/config.prog_settings.tower_width)/max_pos_y - p_count as f32/config.prog_settings.tower_width/max_pos_y/2.0;
+            match config.prog_settings.structure {
+                settings::Structure::Grid => {
+                    let off = 0.0;//25;
+                    if i == 3 {
+                        distance = ((pos[0]-pos[2]).powf(2.0) + (pos[1]-pos[3]).powf(2.0)).powf(0.5)/2.0;
+                    }
+                    pos[i*2] = (i as f32%config.prog_settings.grid_width)/max_pos_x - config.prog_settings.grid_width/max_pos_x/2.0;
+                    if (i as f32/config.prog_settings.grid_width%2.0).floor() == 1.0 {
+                        pos[i*2] += off;
+                    }
+                    pos[i*2+1] = (i as f32/config.prog_settings.grid_width)/max_pos_y - p_count as f32/config.prog_settings.grid_width/max_pos_y/2.0;
                 },
-                settings::Intial_Positions::Random => {
+                settings::Structure::Random => {
                     pos[i*2] = rng.gen_range(-1.0..1.0);
                     pos[i*2+1] = rng.gen_range(-1.0..1.0);
+                    println!("X: {}, Y: {}", pos[i*2], pos[i*2+1]);
                 }
                 
             }
-            // vel[i*2] = rng.gen_range(-max_vel..max_vel);
-            // vel[i*2+1] = rng.gen_range(-max_vel..max_vel);
+
+            if min_h_vel < max_h_vel { vel[i*2] = rng.gen_range(min_h_vel..max_h_vel); } else { vel[i*2] = min_h_vel; }
+            if min_v_vel < max_v_vel { vel[i*2+1] = rng.gen_range(min_v_vel..max_v_vel); } else { vel[i*2+1] = min_v_vel; }
+            
         }
         for i in 0..radii.len() as usize {
-            radii[i] = rng.gen_range(min_rad..max_rad);
+            if config.prog_settings.variable_rad && min_rad < max_rad {
+                radii[i] = rng.gen_range(min_rad..max_rad);
+            } else {
+                radii[i] = max_rad;
+            }
         }
         for i in 0..color.len() as usize {
             color[i] = rng.gen_range(0.1..1.0);
@@ -295,6 +315,10 @@ impl WGPUComputeProg {
             bonds = bonds.into_iter().filter(|num| *num != -1).collect();
         }
 
+        
+        for i in 0..radii.len() {
+            radii[i] *= distance/max_rad;// * 1.99;
+        }
         // Print Bonds
         // for i in 0..p_count{
         //     if bond_info[i*2] != -1 {
@@ -309,12 +333,12 @@ impl WGPUComputeProg {
 
         // Convert arrays to GPU buffers
         let pos_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&pos), "Position Buffer".to_string(), 0);
-        let mov_buffers = BufferGroup::new(&config.device, vec![
+        let mut mov_buffers = BufferGroup::new(&config.device, vec![
             bytemuck::cast_slice(&vel),
             bytemuck::cast_slice(&vel),
             bytemuck::cast_slice(&rot),
             bytemuck::cast_slice(&rot_vel),
-            bytemuck::cast_slice(&rot_vel),
+            bytemuck::cast_slice(&rot_vel)
         
         ], "Movement Buffer".to_string() );
         // let vel_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&vel), "Velocity Buffer".to_string(), 0);
@@ -326,6 +350,7 @@ impl WGPUComputeProg {
         let color_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&color), "Color Buffer".to_string(), 0);
         let bond_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&bonds), "Bond Buffer".to_string(), 0);
         let bond_info_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&bond_info), "Bond Info Buffer".to_string(), 0);
+        let collision_settings = Uniform::new(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()), "Collision Settings".to_string(), 0);
         // let col_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&col_sec), "Collision Buffer".to_string(), 0);
         
         // let time_uniform = Uniform::new(&config.device, bytemuck::cast_slice(&[0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32]), "Timestamp_Uniform".to_string(), 1);
@@ -349,7 +374,7 @@ impl WGPUComputeProg {
 
         let compute_pipeline_layout2 = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Collision compute"),
-            bind_group_layouts: &[&pos_buffer.bind_group_layout, &mov_buffers.bind_group_layout, &radii_buffer.bind_group_layout, &bond_buffer.bind_group_layout, &bond_info_buffer.bind_group_layout],// &col_buffer.bind_group_layout],
+            bind_group_layouts: &[&pos_buffer.bind_group_layout, &mov_buffers.bind_group_layout, &radii_buffer.bind_group_layout, &bond_buffer.bind_group_layout, &bond_info_buffer.bind_group_layout, &collision_settings.bind_group_layout],// &col_buffer.bind_group_layout],
             push_constant_ranges: &[]
         });
         //create pipeline
@@ -375,13 +400,14 @@ impl WGPUComputeProg {
             color_buffer,
             bond_buffer,
             bond_info_buffer,
+            collision_settings,
             // col_buffer,
             compute_pipeline,
             compute_pipeline2
         }
     }
 
-    pub fn compute(&mut self, config: &WGPUConfig){
+    pub fn compute(&mut self, config: &mut WGPUConfig){
         //start compute
         let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
@@ -413,6 +439,9 @@ impl WGPUComputeProg {
 
         let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
 
+        if config.prog_settings.changed_collision_settings {
+            self.collision_settings.updateUniform(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()));
+        }
         {
             let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
 
@@ -426,6 +455,7 @@ impl WGPUComputeProg {
             compute_pass.set_bind_group(2, &self.radii_buffer.bind_group, &[]);    
             compute_pass.set_bind_group(3, &self.bond_buffer.bind_group, &[]);     
             compute_pass.set_bind_group(4, &self.bond_info_buffer.bind_group, &[]);     
+            compute_pass.set_bind_group(5, &self.collision_settings.bind_group, &[]);     
             // compute_pass.set_bind_group(5, &self.col_buffer.bind_group, &[]);     
 
 

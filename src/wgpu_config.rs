@@ -13,7 +13,8 @@ pub struct WGPUConfig {
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
-    pub prog_settings: settings::Settings
+    pub prog_settings: settings::Settings,
+    pub surface_format: wgpu::TextureFormat
     // dim_uniform: Uniform,
     // cursor_uniform: Uniform,
 
@@ -144,7 +145,8 @@ impl WGPUConfig {
             queue,
             config,
             size,
-            prog_settings
+            prog_settings,
+            surface_format
         }
     }
 
