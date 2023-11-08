@@ -10,7 +10,7 @@ const PI = 3.141592653589793238;
 // const vert_bound = 8.0;
 // const hor_bound = 12.0;
 
-@compute @workgroup_size(256)
+@compute @workgroup_size(32)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let id: u32 = global_id.x;
 

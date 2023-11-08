@@ -10,6 +10,7 @@ struct Settings {
     bonds: i32,
     collisions: i32,
     friction: i32,
+    friction_coefficent: f32,
     rotation: i32,
     linear_contact_bonds: i32,
 }
@@ -29,7 +30,7 @@ struct Settings {
 const deltaTime: f32 = 0.0000390625;
 const PI = 3.141592653589793238;
 
-@compute @workgroup_size(256)
+@compute @workgroup_size(32)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let id: u32 = global_id.x;
@@ -174,10 +175,6 @@ fn collide(a: u32, b: u32, stiffness: f32, damping: f32) -> vec2<f32> {
     } else {
         return (2.0 * mass2 / (mass1 + mass2)) * damping * (force);
     }
-    
-
-      
-    
 }
 
 fn NSquaredCollisions(id: u32, stiffness: f32, damping: f32) -> vec2<f32> {

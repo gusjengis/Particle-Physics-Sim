@@ -26,6 +26,7 @@ pub struct Settings {
     pub bonds: bool,
     pub collisions: bool,
     pub friction: bool,
+    pub friction_coefficient: f32,
     pub rotation: bool,
     pub linear_contact_bonds: bool,
     pub changed_collision_settings: bool,
@@ -36,7 +37,7 @@ impl Settings {
     pub fn new() -> Self {
         let genPerFrame = 1;
         let workgroups = 4;
-        let workgroup_size = 256;
+        let workgroup_size = 32;
         //particle settings
         let max_radius = 0.1/3.2;
         let variable_rad = true;
@@ -58,6 +59,7 @@ impl Settings {
         let bonds = true;
         let collisions = true;
         let friction = true;
+        let friction_coefficient = 0.2;
         let rotation = true;
         let linear_contact_bonds = true;
         let changed_collision_settings = false;
@@ -86,6 +88,7 @@ impl Settings {
             bonds,
             collisions,
             friction,
+            friction_coefficient,
             rotation,
             linear_contact_bonds,
             changed_collision_settings,
@@ -202,6 +205,10 @@ impl Settings {
                                 self.changed_collision_settings = true;
                             }
                             if self.friction {
+                                if ui.add(egui::Slider::new(&mut self.friction_coefficient, 0.0..=1.0).
+                                    text("Friction Coefficent")).changed() {
+                                        self.changed_collision_settings = true;
+                                    };
                                 if ui.checkbox(&mut self.rotation, "Rotation").changed() {
                                     self.changed_collision_settings = true;
                                 }
@@ -250,9 +257,9 @@ impl Settings {
             bytemuck::cast(1 as i32 * self.bonds as i32),
             bytemuck::cast(1 as i32 * self.collisions as i32),
             bytemuck::cast(1 as i32 * self.friction as i32),
+            self.friction_coefficient,
             bytemuck::cast(1 as i32 * self.rotation as i32),
             bytemuck::cast(1 as i32 * self.linear_contact_bonds as i32),
-
         ];
     }
 
