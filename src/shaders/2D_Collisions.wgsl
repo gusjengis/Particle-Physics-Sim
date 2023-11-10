@@ -10,7 +10,7 @@ struct Settings {
     bonds: i32,
     collisions: i32,
     friction: i32,
-    friction_coefficent: f32,
+    friction_coefficient: f32,
     rotation: i32,
     linear_contact_bonds: i32,
 }
@@ -30,12 +30,12 @@ struct Settings {
 const deltaTime: f32 = 0.0000390625;
 const PI = 3.141592653589793238;
 
-@compute @workgroup_size(32)
+@compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let id: u32 = global_id.x;
     
-    let stiffness: f32 = 1000.0; // Arbitrarily chosen, adjust as per need
+    let stiffness: f32 = 100.0; // Arbitrarily chosen, adjust as per need
     let damping: f32 = 0.5; // Damping factor, can be adjusted
     
     var new_velocity = velocities[id];
@@ -56,7 +56,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let start = bond_info[id].x;
         let length = bond_info[id].y;
         let shear_lim = 0.11;
-        let normal_lim = 0.11;
+        let normal_lim = 1.00;
         if(start != -1){
             for(var i = u32(start); i<u32(start+length); i++){
                 let bond_id: i32 = bonds[i].index;
@@ -73,40 +73,44 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                     let mass1: f32 = 3.14159265 * radii[id] * radii[id];
                     var force = (spring_force / mass1) * damping;
                     new_velocity -= force;
+                    // if length(force) > normal_lim {
+                    //     bonds[i].index = -1;
+                    // }
+                } else {
+                    // Parallel Bonds, wip
+
+                    let R = sqrt(radii[id]*radii[bond_id]);
+                    let rigidity = 5.0;
+
+                    // let diff = (positions[bond_id] - positions[id]);
+                    // let dist2 = length(diff);
+                    // let curr_angle = acos(diff.x/dist2);
+                    let bond_angle = bonds[i].angle + rot[id];
+                    let other_bond_angle = (bond_angle + PI) % (2.0*PI);
+                    let bond_dir = normalize(vec2(sin(other_bond_angle), cos(other_bond_angle)));
+                    let bond_point = bond_dir*radii[bond_id] + positions[bond_id];
+                    // let bond_pos_diff = bond_point - positions[id];
+                    let shear_dir = normalize(vec2(-bond_dir.y, bond_dir.x));
+                    let ideal_pos = bond_dir*radii[bond_id]*radii[id] + positions[bond_id];//bond_point + bond_dir*radii[id];
+                    let displacement2 = positions[id] - ideal_pos;
+                    let shear_force = dot(displacement2, shear_dir);
+                    let normal_force = dot(displacement2, bond_dir);
+
+                    new_velocity -= (shear_force*shear_dir + normal_force*bond_dir)*rigidity;
+                    // velocities_buf[id] -= ;
+                    // velocities_buf[id] -= displacement2;
+                    // if length(spring_force) > shear_lim {//shear_force > shear_lim || normal_force > normal_lim {
+                    //     bonds[i].index = -1;   
+                    // }
+                    // let ideal_length: f32 = 0.0;
+                    // let displacement2: f32 = ideal_length - length(bond_point_b-bond_point_a);
+                    // let spring_force: vec2<f32> = stiffness/100.0 * displacement * normalize(bond_point_b-bond_point_a);
+                    // let mass1: f32 = 3.14159265 * radii[id] * radii[id];
+                    // let mass2: f32 = 3.14159265 * radii[bond_id] * radii[bond_id];
+                    // let force = (spring_force / mass1) * damping;
+                    // velocities_buf[id] -= force;
                 }
                 
-                // Parallel Bonds, wip
-
-                // let R = sqrt(radii[id]*radii[bond_id]);
-                // let rigidity = 5.0;
-
-                // // let diff = (positions[bond_id] - positions[id]);
-                // // let dist2 = length(diff);
-                // // let curr_angle = acos(diff.x/dist2);
-                // let bond_angle = bonds[i].angle + rot[id];
-                // let other_bond_angle = (bond_angle + PI) % (2.0*PI);
-                // let bond_dir = normalize(vec2(sin(other_bond_angle), cos(other_bond_angle)));
-                // let bond_point = bond_dir*radii[bond_id] + positions[bond_id];
-                // // let bond_pos_diff = bond_point - positions[id];
-                // let shear_dir = normalize(vec2(-bond_dir.y, bond_dir.x));
-                // let ideal_pos = bond_dir*radii[bond_id]*radii[id] + positions[bond_id];//bond_point + bond_dir*radii[id];
-                // let displacement2 = positions[id] - ideal_pos;
-                // let shear_force = dot(displacement2, shear_dir);
-                // let normal_force = dot(displacement2, bond_dir);
-
-                // velocities_buf[id] -= (shear_force*shear_dir + normal_force*bond_dir)*rigidity;
-                // velocities_buf[id] -= ;
-                // velocities_buf[id] -= displacement2;
-                // if length(spring_force) > shear_lim {//shear_force > shear_lim || normal_force > normal_lim {
-                //     bonds[i].index = -1;   
-                // }
-                // let ideal_length: f32 = 0.0;
-                // let displacement2: f32 = ideal_length - length(bond_point_b-bond_point_a);
-                // let spring_force: vec2<f32> = stiffness/100.0 * displacement * normalize(bond_point_b-bond_point_a);
-                // let mass1: f32 = 3.14159265 * radii[id] * radii[id];
-                // let mass2: f32 = 3.14159265 * radii[bond_id] * radii[bond_id];
-                // let force = (spring_force / mass1) * damping;
-                // velocities_buf[id] -= force;
                 
 
                 
@@ -144,25 +148,32 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 }
 
 fn collide(a: u32, b: u32, stiffness: f32, damping: f32) -> vec2<f32> {
-    let overlap: f32 = (radii[b] + radii[a]) - length(positions[b] - positions[a]);
-    let normal: vec2<f32> = normalize(positions[b] - positions[a]);
-    let force: vec2<f32> = stiffness * overlap * normal;
-    let tangent: vec2<f32> = normalize(vec2(-normal.y, normal.x));
-    let relVel: vec2<f32> = velocities[a] - velocities[b];
-    let mass1: f32 = 3.14159265 * radii[a] * radii[a];
-    let mass2: f32 = 3.14159265 * radii[b] * radii[b];
+    let overlap = (radii[b] + radii[a]) - length(positions[b] - positions[a]);
+    let normal = normalize(positions[b] - positions[a]);
+    let normal_force = stiffness * overlap * normal;
+    let tangent = normalize(vec2(-normal.y, normal.x));
+    let relVel = velocities[a] - velocities[b];
+    let mass1 = 3.14159265 * radii[a] * radii[a];
+    let mass2 = 3.14159265 * radii[b] * radii[b];
 
     if settings.friction == 1 {
-        if settings.rotation == 1 {  // With Rotation
+        if settings.rotation == 0 {  // Without Rotation
             let tangentialVelocity: f32 = dot(relVel, tangent);
-            let frictionForce: vec2<f32> = 0.2 * length(force) * tangentialVelocity * tangent;
-            let cappedFrictionForce = vec2(clamp(frictionForce.x, -10.0, 10.0), clamp(frictionForce.y, -10.0, 10.0));
-            return (2.0 * mass2 / (mass1 + mass2)) * damping * (force + cappedFrictionForce);  
-        } else { // Without Rotation
+            let frictionForce: vec2<f32> = settings.friction_coefficient * length(normal_force) * tangentialVelocity * tangent;
+            let frictionLimit = length(normal_force)*settings.friction_coefficient;
+            
+            let cappedFrictionForce = normalize(frictionForce)*vec2(clamp(frictionForce.x, -frictionLimit, frictionLimit), clamp(frictionForce.y, -frictionLimit, frictionLimit));
+            return (2.0 * mass2 / (mass1 + mass2)) * damping * (normal_force + cappedFrictionForce); //Acceleration
+            // let tangentialVelocity: f32 = dot(relVel, tangent);
+            // let frictionForce: vec2<f32> = settings.friction_coefficient * length(normal_force) * tangentialVelocity * tangent;
+            // let cappedFrictionForce = tangent*min(length(normal_force)*settings.friction_coefficient, length(frictionForce));
+            // return damping * (normal_force + cappedFrictionForce)/mass1;   //Acceleration
+
+        } else { // With Rotation
             let tangentialVelocity_a: f32 = rot_vel[a] * radii[a];
             let tangentialVelocity_b: f32 = rot_vel[b] * radii[b];
             let relTangentialVelocity: f32 = dot(relVel, tangent) - (tangentialVelocity_a + tangentialVelocity_b);
-            let frictionForce: vec2<f32> = 0.2 * length(force) * tangent * relTangentialVelocity;
+            let frictionForce: vec2<f32> = settings.friction_coefficient * length(normal_force) * tangent * relTangentialVelocity;
             let r_a: vec2<f32> = positions[b] - positions[a];
             let torque_sign: f32 = sign(relTangentialVelocity);
             let torque_friction_a: f32 = torque_sign * length(r_a) * length(frictionForce);
@@ -170,10 +181,60 @@ fn collide(a: u32, b: u32, stiffness: f32, damping: f32) -> vec2<f32> {
             let delta_omega_friction_a: f32 = torque_friction_a / I_a;
             rot_vel_buf[a] += delta_omega_friction_a * deltaTime;
             let cappedFrictionForce = vec2(clamp(frictionForce.x, -10.0, 10.0), clamp(frictionForce.y, -10.0, 10.0));
-            return (2.0 * mass2 / (mass1 + mass2)) * damping * (force + cappedFrictionForce);  
+            // let frictionLimit = length(normal_force)*settings.friction_coefficient;
+            
+            // let cappedFrictionForce = normalize(frictionForce)*vec2(clamp(frictionForce.x, -frictionLimit, frictionLimit), clamp(frictionForce.y, -frictionLimit, frictionLimit));
+            return (2.0 * mass2 / (mass1 + mass2)) * damping * (normal_force + cappedFrictionForce);   //Acceleration
+            // let tangentialVelocity_a = rot_vel[a] * radii[a];
+            // let tangentialVelocity_b = rot_vel[b] * radii[b];
+            // let relTangentialVelocity = dot(relVel, tangent) - (tangentialVelocity_a + tangentialVelocity_b);
+            // let frictionMag = (length(normal_force)) * relTangentialVelocity;
+            // let frictionForce = tangent*min(length(normal_force)*settings.friction_coefficient, frictionMag);
+            // let r_a = positions[b] - positions[a];
+            // let torque_sign = sign(relTangentialVelocity);
+            // let torque_friction_a = torque_sign * length(r_a) * length(frictionForce);
+            // let I_a = 0.5 * mass1 * radii[a] * radii[a];
+            // let I_b = 0.5 * mass2 * radii[b] * radii[b];
+            // let delta_omega_friction_a = torque_friction_a / I_a;
+            // rot_vel_buf[a] += delta_omega_friction_a;
+
+            // let force = damping * normal_force + frictionForce;
+            // let acceleration = force / mass1;
+            // return acceleration * deltaTime; //Acceleration
+
+            // let tangentialVelocity_a = rot_vel[a] * radii[a];
+            // let tangentialVelocity_b = rot_vel[b] * radii[b];
+            // let relTangentialVelocity = dot(relVel, tangent) - (tangentialVelocity_a + tangentialVelocity_b);
+
+            // // Calculate the direction of the friction force (opposite to relTangentialVelocity)
+            // let friction_dir = if relTangentialVelocity > 0.0 { -tangent } else { tangent };
+
+            // // The friction force should not exceed the static friction limit
+            // let max_friction_force = length(normal_force) * settings.friction_coefficient;
+            // var frictionForce = max_friction_force * friction_dir;
+
+            // // Apply the friction force to the relative tangential velocity
+            // relVel -= frictionForce / (mass1 + mass2); // Apply friction to the relative velocity
+
+            // // Calculate torque_friction and update rotational velocities
+            // // Assuming the force acts at the edge of the sphere (lever arm = radius)
+            // let torque_friction_a = -torque_sign * radii[a] * length(frictionForce);
+            // let torque_friction_b = torque_sign * radii[b] * length(frictionForce);
+
+            // let I_a = (2.0/5.0) * mass1 * radii[a] * radii[a];
+            // let I_b = (2.0/5.0) * mass2 * radii[b] * radii[b];
+
+            // let delta_omega_friction_a = torque_friction_a / I_a;
+            // let delta_omega_friction_b = torque_friction_b / I_b;
+
+            // rot_vel_buf[a] += delta_omega_friction_a * deltaTime;
+            // rot_vel_buf[b] -= delta_omega_friction_b * deltaTime; // Assuming action-reaction pair
+
+            // // Calculate the resulting force (normal force adjusted by damping and friction)
+            // return (normal_force * damping) - frictionForce; //Acceleration
         }
     } else {
-        return (2.0 * mass2 / (mass1 + mass2)) * damping * (force);
+        return (2.0 * mass2 / (mass1 + mass2)) * damping * (normal_force); //Acceleration
     }
 }
 

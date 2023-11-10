@@ -30,14 +30,18 @@ pub struct Settings {
     pub rotation: bool,
     pub linear_contact_bonds: bool,
     pub changed_collision_settings: bool,
-    pub scale: f32
+    pub scale: f32,
+    pub circular_particles: bool,
+    pub render_rot: bool,
+    pub color_code_rot: bool,
+    pub colors: i32,
 }
 
 impl Settings {
     pub fn new() -> Self {
         let genPerFrame = 1;
         let workgroups = 4;
-        let workgroup_size = 32;
+        let workgroup_size = 256;
         //particle settings
         let max_radius = 0.1/3.2;
         let variable_rad = true;
@@ -64,6 +68,10 @@ impl Settings {
         let linear_contact_bonds = true;
         let changed_collision_settings = false;
         let scale = 1.0/vert_bound;
+        let circular_particles = true;
+        let render_rot = true;
+        let color_code_rot = true;
+        let colors = 32;
         Self {
             genPerFrame,
             particles,
@@ -92,7 +100,11 @@ impl Settings {
             rotation,
             linear_contact_bonds,
             changed_collision_settings,
-            scale
+            scale,
+            circular_particles,
+            render_rot,
+            color_code_rot,
+            colors
         }
     }
 
@@ -260,6 +272,16 @@ impl Settings {
             self.friction_coefficient,
             bytemuck::cast(1 as i32 * self.rotation as i32),
             bytemuck::cast(1 as i32 * self.linear_contact_bonds as i32),
+        ];
+    }
+
+    pub fn render_settings(&mut self) -> Vec<i32> {
+        self.changed_collision_settings = false;
+        return vec![
+            self.circular_particles as i32,
+            self.render_rot as i32,
+            self.color_code_rot as i32,
+            self.colors
         ];
     }
 

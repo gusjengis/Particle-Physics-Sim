@@ -506,6 +506,8 @@ impl Client {
             render_pass.set_bind_group(2, &self.wgpu_prog.shader_prog.radii_buffer.bind_group, &[]);
             render_pass.set_bind_group(3, &self.wgpu_prog.shader_prog.color_buffer.bind_group, &[]);
             render_pass.set_bind_group(4, &self.wgpu_prog.shader_prog.mov_buffers.bind_group, &[]);
+            render_pass.set_bind_group(5, &self.wgpu_prog.shader_prog.bond_buffer.bind_group, &[]);
+            render_pass.set_bind_group(6, &self.wgpu_prog.shader_prog.bond_info_buffer.bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.wgpu_prog.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.wgpu_prog.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 

@@ -27,6 +27,7 @@ pub const INDICES: &[u16] = &[
 ];
 pub struct WGPUProg {
     pub dim_uniform: Uniform,
+    pub ren_set_uniform: Uniform,
     pub render_pipeline: wgpu::RenderPipeline,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
@@ -59,6 +60,7 @@ impl WGPUProg {
         });
         let dim_contents = &[config.size.width as f32, config.size.height as f32, config.size.width as f32, config.size.height as f32, 0 as f32, 0 as f32, 1 as f32, 0 as f32];
         let dim_uniform = Uniform::new(&config.device, bytemuck::cast_slice(dim_contents), String::from("dimensions"), 0);
+        let ren_set_uniform = Uniform::new(&config.device, bytemuck::cast_slice(&config.prog_settings.render_settings()), String::from("settings"), 0);
 
         let mut render_pipeline_layout =
         config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -69,6 +71,9 @@ impl WGPUProg {
                 &shader_prog.radii_buffer.bind_group_layout,
                 &shader_prog.color_buffer.bind_group_layout,
                 &shader_prog.mov_buffers.bind_group_layout,
+                &shader_prog.bond_buffer.bind_group_layout,
+                &shader_prog.bond_info_buffer.bind_group_layout,
+                // &ren_set_uniform.bind_group_layout,
             ],
             push_constant_ranges: &[],
         });
@@ -137,6 +142,7 @@ impl WGPUProg {
         
         Self{
             dim_uniform,
+            ren_set_uniform,
             render_pipeline,
             vertex_buffer,
             index_buffer,

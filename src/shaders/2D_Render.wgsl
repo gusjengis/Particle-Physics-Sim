@@ -23,7 +23,20 @@ struct VertexOutput {
     @location(1) color: vec3<f32>,
     @location(2) radius: f32,
     @location(3) rot: f32,
-    @location(4) rot_vel: f32
+    @location(4) rot_vel: f32,
+    @location(5) id: u32
+};
+
+struct Settings {
+    circular_particles: i32,
+    render_rot: i32,
+    color_code_rot: i32,
+    colors: i32,
+}
+
+struct Bond {
+    index: i32,
+    angle: f32
 };
 
 @group(0) @binding(0)
@@ -44,6 +57,12 @@ var<storage, read_write> rot_buf: array<f32>;
 @group(4) @binding(3)
 var<storage, read_write> rot_vel: array<f32>;
 
+@group(5) @binding(0)
+var<storage, read_write> bonds: array<Bond>;
+
+@group(6) @binding(0)
+var<storage, read_write> bond_info: array<vec2<i32>>;
+
 @vertex
 fn vs_main(
     in: VertexIn,
@@ -57,10 +76,11 @@ fn vs_main(
     let off = vec2(dim.xOff / aspect, -dim.yOff)/1000.0;
     out.clip_position = vec4(xy*radii_buf[instance] + center + off, 0.0, 1.0);
     out.position = in.position;
-    out.color = color_buf[instance % 32u];
+    out.color = color_buf[instance % 32u];//u32(settings.colors)];
     out.radius = radii_buf[instance];
     out.rot = rot_buf[instance];
     out.rot_vel = rot_vel[instance];
+    out.id = instance;
     return out;
 }
 
@@ -75,17 +95,35 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     }
     // add border/outline
     let rot_point = vec2(sin(in.rot), cos(in.rot));
-    let rot_dimmer = 1.0;//(0.1+pow(clamp(dot(rot_point, normalize(in.position)),0.0,1.0),1.0));
+    
+    let rot_dot = dot(rot_point, normalize(in.position));
+    var rot_dimmer = 1.0;
+    if (rot_dot < 0.9) {// && settings.render_rot == 1) || settings.render_rot == 0 {
+        rot_dimmer = 1.0;
+    }
     var color = vec4(in.color*rot_dimmer, 10.0);
     let border_width = 0.08;
     if len > 0.5-border_width && len < 0.5 {
         color = vec4(color.rgb*0.5, color.a);
         
     }
-    // if in.rot_vel > 0.0 {
-    //     color = vec4(0.0, color.g, color.ba);
-    // } else if in.rot_vel < 0.0 {
-    //     color = vec4(color.r, 0.0, color.ba);
+    if bond_info[in.id].x != -1 {
+        for(var i = bond_info[in.id].x; i<bond_info[in.id].x+bond_info[in.id].y; i++){
+            if bonds[i].index == -1 {
+                continue;
+            }
+            let dir = normalize(pos_buf[bonds[i].index] - pos_buf[in.id]);
+            if dot(dir, normalize(in.position)) > 0.99 {
+                color = vec4(1.0, 1.0, 1.0, 1.0);
+            }            
+        }
+    }
+    // if settings.color_code_rot == 1 {
+        // if in.rot_vel > 0.0 {
+        //     color = vec4(0.0, color.g, color.ba);
+        // } else if in.rot_vel < 0.0 {
+        //     color = vec4(color.r, 0.0, color.ba);
+        // }
     // }
     //done
     return color;
