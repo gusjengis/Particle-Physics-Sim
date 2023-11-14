@@ -35,6 +35,7 @@ pub struct Settings {
     pub render_rot: bool,
     pub color_code_rot: bool,
     pub colors: i32,
+    pub render_bonds: bool
 }
 
 impl Settings {
@@ -57,8 +58,8 @@ impl Settings {
         let grid_width = 32.0;
         let settings_menu = false;
         let maintain_ar = true;
-        let hor_bound = 6.0;
-        let vert_bound = 4.0;
+        let hor_bound = 3.0;
+        let vert_bound = 2.0;
         let gravity = true;
         let bonds = true;
         let collisions = true;
@@ -69,9 +70,10 @@ impl Settings {
         let changed_collision_settings = false;
         let scale = 1.0/vert_bound;
         let circular_particles = true;
-        let render_rot = true;
-        let color_code_rot = true;
+        let render_rot = false;
+        let color_code_rot = false;
         let colors = 32;
+        let render_bonds = true;
         Self {
             genPerFrame,
             particles,
@@ -104,7 +106,8 @@ impl Settings {
             circular_particles,
             render_rot,
             color_code_rot,
-            colors
+            colors,
+            render_bonds
         }
     }
 
@@ -255,6 +258,14 @@ impl Settings {
                         self.reset();
                     }
                 });
+                egui::CollapsingHeader::new("Rendering").default_open(false).show(ui, |ui| {
+                    ui.checkbox(&mut self.circular_particles, "Circular Particles");
+                    ui.checkbox(&mut self.render_rot, "Render Rotation");
+                    ui.checkbox(&mut self.color_code_rot, "Color Code Rotation");
+                    ui.add(egui::Slider::new(&mut self.colors, 0..=self.particles as i32).text("Colors"));
+                    ui.checkbox(&mut self.render_bonds, "Render Bonds");
+                    
+                });
             });
         }
         return reset;
@@ -281,7 +292,10 @@ impl Settings {
             self.circular_particles as i32,
             self.render_rot as i32,
             self.color_code_rot as i32,
-            self.colors
+            self.colors,
+            (self.bonds && self.render_bonds) as i32,
+            self.hor_bound.to_bits() as i32,
+            self.vert_bound.to_bits() as i32,
         ];
     }
 
@@ -303,8 +317,8 @@ impl Settings {
         self.grid_width = 32.0;
         self.settings_menu = true;
         self.maintain_ar = true;
-        self.hor_bound = 6.0;
-        self.vert_bound = 4.0;
+        self.hor_bound = 3.0;
+        self.vert_bound = 2.0;
         self.gravity = true;
         self.bonds = true;
         self.collisions = true;

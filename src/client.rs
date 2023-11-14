@@ -473,6 +473,8 @@ impl Client {
         let full_output = self.platform.end_frame(Some(&self.canvas.window));
         let paint_jobs = self.platform.context().tessellate(full_output.shapes);
 
+        self.wgpu_prog.ren_set_uniform.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(&self.wgpu_config.prog_settings.render_settings()));
+
         let mut encoder = self.wgpu_config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("encoder"),
         });
@@ -508,6 +510,7 @@ impl Client {
             render_pass.set_bind_group(4, &self.wgpu_prog.shader_prog.mov_buffers.bind_group, &[]);
             render_pass.set_bind_group(5, &self.wgpu_prog.shader_prog.bond_buffer.bind_group, &[]);
             render_pass.set_bind_group(6, &self.wgpu_prog.shader_prog.bond_info_buffer.bind_group, &[]);
+            render_pass.set_bind_group(7, &self.wgpu_prog.ren_set_uniform.bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.wgpu_prog.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.wgpu_prog.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 

@@ -73,7 +73,7 @@ impl WGPUProg {
                 &shader_prog.mov_buffers.bind_group_layout,
                 &shader_prog.bond_buffer.bind_group_layout,
                 &shader_prog.bond_info_buffer.bind_group_layout,
-                // &ren_set_uniform.bind_group_layout,
+                &ren_set_uniform.bind_group_layout,
             ],
             push_constant_ranges: &[],
         });
