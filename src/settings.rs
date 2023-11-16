@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use egui::*;
 
 use crate::wgpu_structs::Uniform;
@@ -35,7 +37,8 @@ pub struct Settings {
     pub render_rot: bool,
     pub color_code_rot: bool,
     pub colors: i32,
-    pub render_bonds: bool
+    pub render_bonds: bool,
+    pub two_part: bool
 }
 
 impl Settings {
@@ -54,7 +57,7 @@ impl Settings {
         let max_v_velocity = 0.0;
         let min_v_velocity = 0.0;
         let particles = workgroup_size*workgroups;
-        let structure = Structure::Grid;
+        let structure = Structure::Exp2;
         let grid_width = 32.0;
         let settings_menu = false;
         let maintain_ar = true;
@@ -64,7 +67,7 @@ impl Settings {
         let bonds = true;
         let collisions = true;
         let friction = true;
-        let friction_coefficient = 0.2;
+        let friction_coefficient = 0.5;
         let rotation = true;
         let linear_contact_bonds = true;
         let changed_collision_settings = false;
@@ -74,6 +77,7 @@ impl Settings {
         let color_code_rot = false;
         let colors = 32;
         let render_bonds = true;
+        let two_part = false;
         Self {
             genPerFrame,
             particles,
@@ -107,7 +111,8 @@ impl Settings {
             render_rot,
             color_code_rot,
             colors,
-            render_bonds
+            render_bonds,
+            two_part
         }
     }
 
@@ -118,20 +123,25 @@ impl Settings {
                 // ui.add(egui::Hyperlink::from_label_and_url("This Repo!", "https://github.com/gusjengis/DEM"));
                 // ui.heading("Settings");
                 egui::CollapsingHeader::new("Setup").show(ui, |ui| {
-                    if ui.add(egui::Slider::new(&mut self.particles, self.workgroup_size..=self.workgroup_size*100).
+                    if !self.two_part { if ui.add(egui::Slider::new(&mut self.particles, self.workgroup_size..=self.workgroup_size*100).
                     text("Particles").
                     step_by(self.workgroup_size as f64)).changed() {
                         self.workgroups = self.particles/self.workgroup_size;
                         reset = true;
-                    };
+                    };}
                     
                     egui::ComboBox::from_label("Structures")
                         .selected_text(format!("{:?}", self.structure))
                         .show_ui(ui, |ui| {
-                            reset = ui.selectable_value(&mut self.structure, Structure::Random, "Random").changed();
-                            reset = ui.selectable_value(&mut self.structure, Structure::Grid, "Grid").changed();
+                            // reset = ui.selectable_value(&mut self.structure, Structure::Random, "Random").changed();
+                            reset = reset || ui.selectable_value(&mut self.structure, Structure::Grid, "Grid").changed();
+                            reset = reset || ui.selectable_value(&mut self.structure, Structure::Exp1, "Experiment 1").changed();
+                            reset = reset || ui.selectable_value(&mut self.structure, Structure::Exp2, "Experiment 2").changed();
+                            reset = reset || ui.selectable_value(&mut self.structure, Structure::Exp3, "Experiment 3").changed();
+                            reset = reset || ui.selectable_value(&mut self.structure, Structure::Exp4, "Experiment 4").changed();
+                            reset = reset || ui.selectable_value(&mut self.structure, Structure::Exp5, "Experiment 5").changed();
                         });
-                    if self.structure == Structure::Grid {
+                    if !self.two_part { if self.structure == Structure::Grid {
                         if ui.add(egui::Slider::new(&mut self.grid_width, 1.0..=self.particles as f32).
                         text("Grid Width")
                         .logarithmic(true)).changed() {
@@ -191,7 +201,7 @@ impl Settings {
                             }
                             reset = true;
                         };
-                    });
+                    });}
                 });
                 
                 egui::CollapsingHeader::new("Runtime").default_open(true).show(ui, |ui| {
@@ -262,13 +272,13 @@ impl Settings {
                     ui.checkbox(&mut self.circular_particles, "Circular Particles");
                     ui.checkbox(&mut self.render_rot, "Render Rotation");
                     ui.checkbox(&mut self.color_code_rot, "Color Code Rotation");
-                    ui.add(egui::Slider::new(&mut self.colors, 0..=self.particles as i32).text("Colors"));
+                    ui.add(egui::Slider::new(&mut self.colors, 0..=(self.particles-1) as i32).text("Colors"));
                     ui.checkbox(&mut self.render_bonds, "Render Bonds");
                     
                 });
             });
         }
-        return reset;
+        return reset;   
     }
 
     pub fn collison_settings(&mut self) -> Vec<f32> {
@@ -287,7 +297,6 @@ impl Settings {
     }
 
     pub fn render_settings(&mut self) -> Vec<i32> {
-        self.changed_collision_settings = false;
         return vec![
             self.circular_particles as i32,
             self.render_rot as i32,
@@ -313,7 +322,7 @@ impl Settings {
         self.max_v_velocity = 0.0;
         self.min_v_velocity = 0.0;
         self.particles = self.workgroup_size*self.workgroups;
-        self.structure = Structure::Grid;
+        self.structure = Structure::Exp2;
         self.grid_width = 32.0;
         self.settings_menu = true;
         self.maintain_ar = true;
@@ -332,5 +341,10 @@ impl Settings {
 #[derive(Debug, PartialEq)]
 pub enum Structure {
     Grid,
-    Random
+    Random,
+    Exp1,
+    Exp2,
+    Exp3,
+    Exp4,
+    Exp5,
 }

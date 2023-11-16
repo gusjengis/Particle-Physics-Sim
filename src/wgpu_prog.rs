@@ -3,10 +3,13 @@ use std::fmt::DebugTuple;
 use bytemuck::bytes_of;
 use rand::Rng;
 use crate::settings;
+use crate::settings::Structure;
+use crate::setup;
 // use crate::
 // use winit::*;
 use crate::wgpu_structs::*;
 use crate::wgpu_config::*;
+use crate::setup::*;
 
 use wgpu::util::DeviceExt;
 
@@ -190,140 +193,52 @@ pub struct WGPUComputeProg {
 impl WGPUComputeProg {
     pub fn new(config: &mut WGPUConfig) -> Self {
         // Create empty arrays for particle data
-        let p_count = config.prog_settings.particles;
+        let p_count = setup::p_count(&mut config.prog_settings);
         let mut pos = vec![0.0 as f32; p_count*2];
         let mut vel = vec![0.0 as f32; p_count*2];
+        let mut acc = vec![0.0 as f32; p_count*3];
         let mut rot = vec![0.0 as f32; p_count];
         let mut rot_vel = vec![0.0 as f32; p_count];
+        let mut forces = vec![0.0 as f32; p_count*6];
         let mut radii = vec![0.0 as f32; p_count];
         let mut color = vec![1.0 as f32; p_count*3];
+        let mut fixity = vec![0; p_count*3];
+        let mut bonds = vec![-1; 1];
+        let mut bond_info = vec![-1; 1];
         
         // Setup initial state, Fill with random values
-        let mut rng = rand::thread_rng();
-        let max_rad = config.prog_settings.max_radius;
-        let min_rad = config.prog_settings.min_radius;
-        let max_h_vel = config.prog_settings.max_h_velocity;
-        let min_h_vel = config.prog_settings.min_h_velocity;
-        let max_v_vel = config.prog_settings.max_v_velocity;
-        let min_v_vel = config.prog_settings.min_v_velocity;
-        let workgroups = config.prog_settings.workgroups as f32;
-        let max_pos_y = 20.0;
-        let max_pos_x = 20.0;
-        let mut distance = 0.0;
-        for i in 0..p_count {
-            match config.prog_settings.structure {
-                settings::Structure::Grid => {
-                    let off = 0.0;//25;
-                    if i == 3 {
-                        distance = ((pos[0]-pos[2]).powf(2.0) + (pos[1]-pos[3]).powf(2.0)).powf(0.5)/2.0;
-                    }
-                    pos[i*2] = (i as f32%config.prog_settings.grid_width)/max_pos_x - config.prog_settings.grid_width/max_pos_x/2.0;
-                    if (i as f32/config.prog_settings.grid_width%2.0).floor() == 1.0 {
-                        pos[i*2] += off;
-                    }
-                    pos[i*2+1] = (i as f32/config.prog_settings.grid_width)/max_pos_y - p_count as f32/config.prog_settings.grid_width/max_pos_y/2.0;
-                },
-                settings::Structure::Random => {
-                    pos[i*2] = rng.gen_range(-1.0..1.0);
-                    pos[i*2+1] = rng.gen_range(-1.0..1.0);
-                    println!("X: {}, Y: {}", pos[i*2], pos[i*2+1]);
-                }
-                
-            }
-
-            if min_h_vel < max_h_vel { vel[i*2] = rng.gen_range(min_h_vel..max_h_vel); } else { vel[i*2] = min_h_vel; }
-            if min_v_vel < max_v_vel { vel[i*2+1] = rng.gen_range(min_v_vel..max_v_vel); } else { vel[i*2+1] = min_v_vel; }
-            
-        }
-        for i in 0..radii.len() as usize {
-            if config.prog_settings.variable_rad && min_rad < max_rad {
-                radii[i] = rng.gen_range(min_rad..max_rad);
-            } else {
-                radii[i] = max_rad;
-            }
-        }
-        for i in 0..color.len() as usize {
-            color[i] = rng.gen_range(0.1..1.0);
-        }
-        // Initialize Collision Sections
-        let vert_bound = 2.0;
-        let hor_bound = vert_bound*16.0/11.0;
-        let coll_grid_w = 30;
-        let coll_grid_h = 30;
-        let coll_section_size = 100;
-        // let mut col_sec = vec![-1 as i32; coll_grid_w*coll_grid_h*coll_section_size];
-        // Initialize Bonds
-        let MAX_BONDS = config.prog_settings.max_bonds;
-        let mut bonds = vec![-1; p_count*MAX_BONDS*2];
-        let mut found_bonds = true;
-        for i in 0..p_count {
-            let mut col_num = 0;
-            for j in 0..p_count {
-                if j != i {
-                    if ((pos[j*2] - pos[i*2]).powf(2.0) + (pos[j*2+1] - pos[i*2+1]).powf(2.0)).powf(0.5) < radii[i] + radii[j] {
-                        if col_num < MAX_BONDS && bonds[(i*MAX_BONDS+col_num)*2] == -1 {
-                            bonds[(i*MAX_BONDS+col_num)*2] = j as i32; 
-                            let delta = (pos[j*2] - pos[i*2], pos[j*2+1] - pos[i*2+1]);
-                            let magnitude = (delta.0*delta.0 + delta.1*delta.1).powf(0.5);
-                            let normalized_delta = (delta.0/magnitude, delta.1/magnitude);
-                            let angle = normalized_delta.1.atan2(normalized_delta.0);
-                            bonds[(i*MAX_BONDS+col_num)*2+1] = (magnitude as f32).to_bits() as i32; 
-                            col_num += 1;
-                            found_bonds = true;
-                        } else if col_num == MAX_BONDS{
-                            break;
-                        }
-                    }
-                }
-            }
-            // let sec_id = ((pos[i*2+1] + vert_bound)/(2.0*vert_bound)*coll_grid_h as f32) as usize * coll_grid_w as usize + (((pos[i*2] + hor_bound)/(2.0*hor_bound)) * coll_grid_w as f32) as usize;
-            // for k in coll_section_size*sec_id..coll_section_size*sec_id+coll_section_size {
-            //     if(col_sec[k] == -1) {
-            //         col_sec[k] = i as i32;
-            //         break;
-            //     }
-            // }
-        }
-        // let mut point_count = 0;
-        // for i in 0..coll_grid_h*coll_grid_w {
-        //     let x = i%coll_grid_w;
-        //     let y = i/coll_grid_h;
-        //     print!("Section {}({}, {}): ", i, x, y);
-        //     for j in 0..coll_section_size {
-        //         if col_sec[i*coll_section_size+j] != -1 {
-        //             print!("{},", col_sec[i*coll_section_size+j]);  
-        //             point_count += 1;  
-        //         }
-        //     }
-        //     print!("\n");
-        // }
-        // println!("Total Points: {}", point_count);
-        let mut bond_info = vec![-1; config.prog_settings.particles*2];
-        let mut index = 0;
-        for i in 0..p_count {
-            let start = index;
-            let mut length = 0;
-            for j in 0..MAX_BONDS {
-                if bonds[(i*MAX_BONDS+j)*2] != -1 {
-                    length += 1;
-                    index += 1;
-                }
-            }
-            if length > 0 {
-                bond_info[i*2] = start as i32;
-                bond_info[i*2+1] = length as i32;
-            } else {
-                bond_info[i*2] = -1;
-                bond_info[i*2+1] = -1;
-            }
-        }
-        if found_bonds {
-            bonds = bonds.into_iter().filter(|num| *num != -1).collect();
-        }
-
-        
-        for i in 0..radii.len() {
-            radii[i] *= distance/max_rad;// * 1.99;
+        match config.prog_settings.structure {
+            Structure::Grid => {
+                let bond_vecs = setup::grid(&mut config.prog_settings, &mut pos, &mut vel, &mut rot, &mut rot_vel, &mut radii, &mut color, &mut fixity);
+                bonds = bond_vecs.0;
+                bond_info = bond_vecs.1;
+            },
+            Structure::Exp1 => {
+                let bond_vecs = setup::exp1(&mut config.prog_settings, &mut pos, &mut vel, &mut rot, &mut rot_vel, &mut radii, &mut color, &mut fixity, &mut forces);
+                bonds = bond_vecs.0;
+                bond_info = bond_vecs.1;
+            },
+            Structure::Exp2 => {
+                let bond_vecs = setup::exp2(&mut config.prog_settings, &mut pos, &mut vel, &mut rot, &mut rot_vel, &mut radii, &mut color, &mut fixity, &mut forces);
+                bonds = bond_vecs.0;
+                bond_info = bond_vecs.1;
+            },
+            Structure::Exp3 => {
+                let bond_vecs = setup::exp3(&mut config.prog_settings, &mut pos, &mut vel, &mut rot, &mut rot_vel, &mut radii, &mut color, &mut fixity, &mut forces);
+                bonds = bond_vecs.0;
+                bond_info = bond_vecs.1;
+            },
+            Structure::Exp4 => {
+                let bond_vecs = setup::exp4(&mut config.prog_settings, &mut pos, &mut vel, &mut rot, &mut rot_vel, &mut radii, &mut color, &mut fixity, &mut forces);
+                bonds = bond_vecs.0;
+                bond_info = bond_vecs.1;
+            },
+            Structure::Exp5 => {
+                let bond_vecs = setup::exp5(&mut config.prog_settings, &mut pos, &mut vel, &mut rot, &mut rot_vel, &mut radii, &mut color, &mut fixity, &mut forces);
+                bonds = bond_vecs.0;
+                bond_info = bond_vecs.1;
+            },
+            Structure::Random => {},
         }
         // Print Bonds
         // for i in 0..p_count{
@@ -344,14 +259,14 @@ impl WGPUComputeProg {
             bytemuck::cast_slice(&vel),
             bytemuck::cast_slice(&rot),
             bytemuck::cast_slice(&rot_vel),
-            bytemuck::cast_slice(&rot_vel)
+            bytemuck::cast_slice(&rot_vel),
+            bytemuck::cast_slice(&acc),
+            bytemuck::cast_slice(&fixity),
+            bytemuck::cast_slice(&forces),
+            // bytemuck::cast_slice(&rot_forces),
+            // bytemuck::cast_slice(&vel_forces),
         
         ], "Movement Buffer".to_string() );
-        // let vel_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&vel), "Velocity Buffer".to_string(), 0);
-        // let vel_buf_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&vel), "Velocity Buffer Buffer".to_string(), 0);
-        // let rot_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&rot), "Rotation Buffer".to_string(), 0);
-        // let rot_vel_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&rot_vel), "Rotational Velocity Buffer".to_string(), 0);
-        // let rot_vel_buf_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&rot_vel), "Rotational Velocity Buffer Buffer".to_string(), 0);
         let radii_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&radii), "Radii Buffer".to_string(), 0);
         let color_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&color), "Color Buffer".to_string(), 0);
         let bond_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&bonds), "Bond Buffer".to_string(), 0);

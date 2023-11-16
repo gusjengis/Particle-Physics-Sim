@@ -39,7 +39,8 @@ struct Settings {
 
 struct Bond {
     index: i32,
-    angle: f32
+    angle: f32,
+    length: f32
 };
 
 @group(0) @binding(0)
@@ -99,14 +100,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     //     return vec4(1.0, 1.0, 1.0, 1.0);
     // }
     var color = vec4(in.color, 1.0);
+    let len = length(in.position);
     if settings.circular_particles == 1 {
-        let len = length(in.position);
         if len > 0.5 {
             discard;
-        }
-        let border_width = 0.08;
-        if len > 0.5-border_width && len < 0.5 {
-            color = vec4(color.rgb*0.5, color.a);
         }
     }
     
@@ -120,6 +117,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             rot_dimmer = 1.0;
         }
         color = vec4(color.rgb*rot_dimmer, 1.0);
+    }
+
+    if settings.circular_particles == 1 {
+        let border_width = 0.08;
+        if len > 0.5-border_width && len < 0.5 {
+            color = vec4(in.color.rgb*0.5, color.a);
+        }
     }
     
     if settings.color_code_rot == 1 {
