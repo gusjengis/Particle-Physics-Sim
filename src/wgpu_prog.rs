@@ -202,6 +202,7 @@ impl WGPUComputeProg {
         let mut forces = vec![0.0 as f32; p_count*6];
         let mut radii = vec![0.0 as f32; p_count];
         let mut color = vec![1.0 as f32; p_count*3];
+        // let mut material = vec![1.0 as f32; p_count];
         let mut fixity = vec![0; p_count*3];
         let mut bonds = vec![-1; 1];
         let mut bond_info = vec![-1; 1];
@@ -235,6 +236,11 @@ impl WGPUComputeProg {
             },
             Structure::Exp5 => {
                 let bond_vecs = setup::exp5(&mut config.prog_settings, &mut pos, &mut vel, &mut rot, &mut rot_vel, &mut radii, &mut color, &mut fixity, &mut forces);
+                bonds = bond_vecs.0;
+                bond_info = bond_vecs.1;
+            },
+            Structure::Exp6 => {
+                let bond_vecs = setup::exp6(&mut config.prog_settings, &mut pos, &mut vel, &mut rot, &mut rot_vel, &mut radii, &mut color, &mut fixity, &mut forces);
                 bonds = bond_vecs.0;
                 bond_info = bond_vecs.1;
             },

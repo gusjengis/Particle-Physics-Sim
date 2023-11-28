@@ -140,6 +140,7 @@ impl Settings {
                             reset = reset || ui.selectable_value(&mut self.structure, Structure::Exp3, "Experiment 3").changed();
                             reset = reset || ui.selectable_value(&mut self.structure, Structure::Exp4, "Experiment 4").changed();
                             reset = reset || ui.selectable_value(&mut self.structure, Structure::Exp5, "Experiment 5").changed();
+                            reset = reset || ui.selectable_value(&mut self.structure, Structure::Exp6, "Experiment 6").changed();
                         });
                     if !self.two_part { if self.structure == Structure::Grid {
                         if ui.add(egui::Slider::new(&mut self.grid_width, 1.0..=self.particles as f32).
@@ -231,7 +232,7 @@ impl Settings {
                             }
                             if self.friction {
                                 if ui.add(egui::Slider::new(&mut self.friction_coefficient, 0.0..=1.0).
-                                    text("Friction Coefficent")).changed() {
+                                    text("Friction Coef.")).changed() {
                                         self.changed_collision_settings = true;
                                     };
                                 if ui.checkbox(&mut self.rotation, "Rotation").changed() {
@@ -347,4 +348,5 @@ pub enum Structure {
     Exp3,
     Exp4,
     Exp5,
+    Exp6,
 }

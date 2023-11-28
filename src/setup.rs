@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use rand::Rng;
 
 use crate::settings::{*, self};
@@ -336,3 +338,47 @@ pub fn exp5(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
 
 }
 
+pub fn exp6(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>) -> (Vec<i32>, Vec<i32>){
+    settings.colors = 1;
+    settings.gravity = false;
+    settings.linear_contact_bonds = false;
+    settings.friction = false;
+    // settings.hor_bound = 2.666;    
+    // settings.vert_bound = 2.0;
+    // settings.scale = 0.5;
+    settings.render_rot = true;
+    settings.color_code_rot = true;
+    settings.two_part = true;
+    //            A                  B
+    pos[0]     = -0.5; pos[2]     =  0.5; // X
+    pos[1]     =  0.0; pos[3]     =  0.0; // Y
+    rot[0]     =  0.0; rot[1]     =  0.0; // Angle
+    vel[0]     =  0.0; vel[2]     =  0.0; // X Velocity
+    vel[1]     =  0.0; vel[3]     =  0.0; // Y Velocity
+    rot_vel[0] =  0.0; rot_vel[1] =  100.0; // Angular Velocity
+    radii[0]   =  0.5; radii[1]   =  0.5; // Radius
+
+    //Fixity
+    //          A              B
+    fixity[0] = 0; fixity[3] = 1; // X-Velocity
+    fixity[1] = 0; fixity[4] = 1; // Y-Velocity
+    fixity[2] = 0; fixity[5] = 1; // Angular-Velocity
+    
+    //Forces
+    //            A                  B
+    forces[0] =  0.0; forces[6]  =  0.0; // X-Force
+    forces[1] =  0.0; forces[7]  =  0.0; // Y-Force
+    forces[2] =  0.0; forces[8]  =  0.0; // Moment
+    forces[3] =  0.0; forces[9]  =  0.0; // X-Force Vel
+    forces[4] =  0.0; forces[10] =  0.0; // Y-Force Vel
+    forces[5] =  0.0; forces[11] =  0.0; // Moment Vel
+
+    let delta = (pos[2] - pos[0], pos[3] - pos[1]);
+    let magnitude = (delta.0*delta.0 + delta.1*delta.1).powf(0.5);
+    let normalized_delta = (delta.0/magnitude, delta.1/magnitude);
+    let angle = normalized_delta.0.atan2(normalized_delta.1);
+    return (vec![1, (angle).to_bits() as i32, (magnitude).to_bits() as i32,
+                 0, (angle+PI).to_bits() as i32, (magnitude).to_bits() as i32], // bonds
+            vec![0, 1, 
+                 1, 1]); // bond_info
+}
