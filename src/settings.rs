@@ -12,6 +12,7 @@ pub struct Settings {
     pub max_radius: f32,
     pub min_radius: f32,
     pub max_bonds: usize,
+    pub max_contacts: usize,
     pub max_h_velocity: f32,
     pub min_h_velocity: f32,
     pub max_v_velocity: f32,
@@ -25,6 +26,7 @@ pub struct Settings {
     pub hor_bound: f32,
     pub vert_bound: f32,
     pub gravity: bool,
+    pub gravity_acceleration: f32,
     pub bonds: bool,
     pub collisions: bool,
     pub friction: bool,
@@ -52,6 +54,7 @@ impl Settings {
         let holeyness = 1.7;
         let min_radius = max_radius/holeyness;
         let max_bonds = 4;
+        let max_contacts = 8;
         let max_h_velocity = 0.0;
         let min_h_velocity = 0.0;
         let max_v_velocity = 0.0;
@@ -64,6 +67,7 @@ impl Settings {
         let hor_bound = 3.0;
         let vert_bound = 2.0;
         let gravity = true;
+        let gravity_acceleration = 9.8;
         let bonds = true;
         let collisions = true;
         let friction = true;
@@ -86,6 +90,7 @@ impl Settings {
             max_radius,
             min_radius,
             max_bonds,
+            max_contacts,
             max_h_velocity,
             min_h_velocity,
             max_v_velocity,
@@ -99,6 +104,7 @@ impl Settings {
             hor_bound,
             vert_bound,
             gravity,
+            gravity_acceleration,
             bonds,
             collisions,
             friction,
@@ -215,6 +221,13 @@ impl Settings {
                         if ui.checkbox(&mut self.gravity, "Gravity").changed() {
                             self.changed_collision_settings = true;
                         }
+                        if self.gravity {
+                            if ui.add(egui::Slider::new(&mut self.gravity_acceleration, -100.0..=100.0).step_by(0.1).
+                                text("Acceleration")).changed() {
+                                    println!("{}", self.gravity_acceleration);
+                                    self.changed_collision_settings = true;
+                                };
+                        }
                         if ui.checkbox(&mut self.bonds, "Bonds").changed() {
                             self.changed_collision_settings = true;
                         }
@@ -294,6 +307,8 @@ impl Settings {
             self.friction_coefficient,
             bytemuck::cast(1 as i32 * self.rotation as i32),
             bytemuck::cast(1 as i32 * self.linear_contact_bonds as i32),
+            self.gravity_acceleration
+
         ];
     }
 

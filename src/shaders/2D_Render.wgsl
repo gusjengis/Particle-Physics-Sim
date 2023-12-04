@@ -64,10 +64,10 @@ var<storage, read_write> rot_vel: array<f32>;
 @group(5) @binding(0)
 var<storage, read_write> bonds: array<Bond>;
 
-@group(6) @binding(0)
+@group(5) @binding(1)
 var<storage, read_write> bond_info: array<vec2<i32>>;
 
-@group(7) @binding(0)
+@group(6) @binding(0)
 var<uniform> settings: Settings;
 
 @vertex
@@ -108,7 +108,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     }
     
     // add border/outline
-    let rot_point = vec2(sin(in.rot), cos(in.rot));
+    let rot_point = vec2(cos(in.rot), sin(in.rot));
     
     let rot_dot = dot(rot_point, normalize(in.position));
     if settings.render_rot == 1 {

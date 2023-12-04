@@ -311,13 +311,13 @@ pub fn exp5(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
     settings.color_code_rot = true;
     settings.two_part = true;
     //            A                  B
-    pos[0]     = -0.5; pos[2]     =  0.5; // X
+    pos[0]     = -0.8; pos[2]     =  0.5; // X
     pos[1]     =  0.0; pos[3]     =  0.399; // Y
     rot[0]     =  0.0; rot[1]     =  0.0; // Angle
     vel[0]     =  0.0; vel[2]     = -1.0; // X Velocity
     vel[1]     =  0.0; vel[3]     =  0.0; // Y Velocity
     rot_vel[0] =  0.0; rot_vel[1] =  0.0; // Angular Velocity
-    radii[0]   =  0.2; radii[1]   =  0.2; // Radius
+    radii[0]   =  1.0; radii[1]   =  0.2; // Radius
 
     //Fixity
     //          A              B

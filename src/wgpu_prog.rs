@@ -74,8 +74,7 @@ impl WGPUProg {
                 &shader_prog.radii_buffer.bind_group_layout,
                 &shader_prog.color_buffer.bind_group_layout,
                 &shader_prog.mov_buffers.bind_group_layout,
-                &shader_prog.bond_buffer.bind_group_layout,
-                &shader_prog.bond_info_buffer.bind_group_layout,
+                &shader_prog.contact_buffers.bind_group_layout,
                 &ren_set_uniform.bind_group_layout,
             ],
             push_constant_ranges: &[],
@@ -179,12 +178,13 @@ pub struct WGPUComputeProg {
     pub mov_buffers: BufferGroup,
     pub radii_buffer: BufferUniform,
     pub color_buffer: BufferUniform,
-    pub bond_buffer: BufferUniform,
-    pub bond_info_buffer: BufferUniform,
+    pub contact_buffers: BufferGroup,
     pub collision_settings: Uniform,
     // pub col_buffer: BufferUniform,
     pub compute_pipeline: wgpu::ComputePipeline,
     pub compute_pipeline2: wgpu::ComputePipeline,
+    pub compute_pipeline3: wgpu::ComputePipeline,
+    pub compute_pipeline4: wgpu::ComputePipeline,
     // shader1: wgpu::ShaderModule,
     // pub use1: bool,
 }
@@ -206,7 +206,9 @@ impl WGPUComputeProg {
         let mut fixity = vec![0; p_count*3];
         let mut bonds = vec![-1; 1];
         let mut bond_info = vec![-1; 1];
-        
+        let mut contacts = vec![-1.0 as f32; 6*config.prog_settings.max_contacts*p_count];
+        let mut contact_pointers = vec![-1; 8*p_count];
+
         // Setup initial state, Fill with random values
         match config.prog_settings.structure {
             Structure::Grid => {
@@ -275,7 +277,14 @@ impl WGPUComputeProg {
         ], "Movement Buffer".to_string() );
         let radii_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&radii), "Radii Buffer".to_string(), 0);
         let color_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&color), "Color Buffer".to_string(), 0);
-        let bond_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&bonds), "Bond Buffer".to_string(), 0);
+        let mut contact_buffers = BufferGroup::new(&config.device, vec![
+            bytemuck::cast_slice(&bonds),
+            bytemuck::cast_slice(&bond_info), 
+            bytemuck::cast_slice(&contacts),
+            bytemuck::cast_slice(&contact_pointers),
+        ], "Contact Buffers".to_string() );
+        // let contact_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&contacts), "Contact Buffer".to_string(), 0);
+        // let bond_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&bonds), "Bond Buffer".to_string(), 0);
         let bond_info_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&bond_info), "Bond Info Buffer".to_string(), 0);
         let collision_settings = Uniform::new(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()), "Collision Settings".to_string(), 0);
         // let col_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&col_sec), "Collision Buffer".to_string(), 0);
@@ -292,6 +301,16 @@ impl WGPUComputeProg {
             source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/2D_Collisions.wgsl").into()),
         });
 
+        let compute_shader3 = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/2D_Forces.wgsl").into()),
+        });
+
+        let compute_shader4 = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/2D_Particle_Forces.wgsl").into()),
+        });
+
         //create pipeline layout
         let compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("LOM compute"),
@@ -301,7 +320,17 @@ impl WGPUComputeProg {
 
         let compute_pipeline_layout2 = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Collision compute"),
-            bind_group_layouts: &[&pos_buffer.bind_group_layout, &mov_buffers.bind_group_layout, &radii_buffer.bind_group_layout, &bond_buffer.bind_group_layout, &bond_info_buffer.bind_group_layout, &collision_settings.bind_group_layout],// &col_buffer.bind_group_layout],
+            bind_group_layouts: &[&pos_buffer.bind_group_layout, &mov_buffers.bind_group_layout, &radii_buffer.bind_group_layout, &contact_buffers.bind_group_layout, &collision_settings.bind_group_layout],// &col_buffer.bind_group_layout],
+            push_constant_ranges: &[]
+        });
+        let compute_pipeline_layout3 = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Force compute"),
+            bind_group_layouts: &[&pos_buffer.bind_group_layout, &mov_buffers.bind_group_layout, &radii_buffer.bind_group_layout, &contact_buffers.bind_group_layout, &collision_settings.bind_group_layout],// &col_buffer.bind_group_layout],    
+            push_constant_ranges: &[]
+        });
+        let compute_pipeline_layout4 = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Particle Force compute"),
+            bind_group_layouts: &[&pos_buffer.bind_group_layout, &mov_buffers.bind_group_layout, &radii_buffer.bind_group_layout, &contact_buffers.bind_group_layout, &collision_settings.bind_group_layout],// &col_buffer.bind_group_layout],
             push_constant_ranges: &[]
         });
         //create pipeline
@@ -320,17 +349,32 @@ impl WGPUComputeProg {
             entry_point: "main",
         });
 
+        let compute_pipeline3 = config.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: None,
+            layout: Some(&compute_pipeline_layout3),
+            module: &compute_shader3,
+            entry_point: "main",
+        });
+
+        let compute_pipeline4 = config.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: None,
+            layout: Some(&compute_pipeline_layout4),
+            module: &compute_shader4,
+            entry_point: "main",
+        });
+
         Self {
             pos_buffer,
             mov_buffers,
             radii_buffer,
             color_buffer,
-            bond_buffer,
-            bond_info_buffer,
+            contact_buffers,
             collision_settings,
             // col_buffer,
             compute_pipeline,
-            compute_pipeline2
+            compute_pipeline2,
+            compute_pipeline3,
+            compute_pipeline4
         }
     }
 
@@ -362,39 +406,110 @@ impl WGPUComputeProg {
         // Submit the command encoder
         config.queue.submit(Some(encoder.finish()));
 
-        let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-
-        let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
-
-        if config.prog_settings.changed_collision_settings {
-            self.collision_settings.updateUniform(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()));
-        }
-        {
-            let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
-
-            // Set the compute pipeline
-            compute_pass.set_pipeline(&self.compute_pipeline2);
-
-            // Bind resource bindings (if any)
-            
-            compute_pass.set_bind_group(0, &self.pos_buffer.bind_group, &[]);
-            compute_pass.set_bind_group(1, &self.mov_buffers.bind_group, &[]);     
-            compute_pass.set_bind_group(2, &self.radii_buffer.bind_group, &[]);    
-            compute_pass.set_bind_group(3, &self.bond_buffer.bind_group, &[]);     
-            compute_pass.set_bind_group(4, &self.bond_info_buffer.bind_group, &[]);     
-            compute_pass.set_bind_group(5, &self.collision_settings.bind_group, &[]);     
-            // compute_pass.set_bind_group(5, &self.col_buffer.bind_group, &[]);     
 
 
-            // Dispatch the compute shader
-            compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
+                let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-            // You can also set other compute pass options, such as memory barriers and synchronization
+                let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
 
-        } // The compute pass ends here
+                if config.prog_settings.changed_collision_settings {
+                    self.collision_settings.updateUniform(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()));
+                }
+                {
+                    let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
 
-        // Submit the command encoder
-        config.queue.submit(Some(encoder.finish()));
+                    // Set the compute pipeline
+                    compute_pass.set_pipeline(&self.compute_pipeline2);
+
+                    // Bind resource bindings (if any)
+                    
+                    compute_pass.set_bind_group(0, &self.pos_buffer.bind_group, &[]);
+                    compute_pass.set_bind_group(1, &self.mov_buffers.bind_group, &[]);     
+                    compute_pass.set_bind_group(2, &self.radii_buffer.bind_group, &[]);    
+                    compute_pass.set_bind_group(3, &self.contact_buffers.bind_group, &[]);         
+                    compute_pass.set_bind_group(4, &self.collision_settings.bind_group, &[]);     
+                    // compute_pass.set_bind_group(5, &self.col_buffer.bind_group, &[]);     
+
+
+                    // Dispatch the compute shader
+                    compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
+
+                    // You can also set other compute pass options, such as memory barriers and synchronization
+
+                } // The compute pass ends here
+
+                // Submit the command encoder
+                config.queue.submit(Some(encoder.finish()));
+
+
+
+                        let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+                        let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
+
+                        if config.prog_settings.changed_collision_settings {
+                            self.collision_settings.updateUniform(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()));
+                        }
+                        {
+                            let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
+
+                            // Set the compute pipeline
+                            compute_pass.set_pipeline(&self.compute_pipeline3);
+
+                            // Bind resource bindings (if any)
+                            
+                            compute_pass.set_bind_group(0, &self.pos_buffer.bind_group, &[]);
+                            compute_pass.set_bind_group(1, &self.mov_buffers.bind_group, &[]);     
+                            compute_pass.set_bind_group(2, &self.radii_buffer.bind_group, &[]);    
+                            compute_pass.set_bind_group(3, &self.contact_buffers.bind_group, &[]);      
+                            compute_pass.set_bind_group(4, &self.collision_settings.bind_group, &[]);     
+                            // compute_pass.set_bind_group(5, &self.col_buffer.bind_group, &[]);     
+
+
+                            // Dispatch the compute shader
+                            compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
+
+                            // You can also set other compute pass options, such as memory barriers and synchronization
+
+                        } // The compute pass ends here
+
+                        // Submit the command encoder
+                        config.queue.submit(Some(encoder.finish()));
+
+
+
+                                let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+                                let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
+
+                                if config.prog_settings.changed_collision_settings {
+                                    self.collision_settings.updateUniform(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()));
+                                }
+                                {
+                                    let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
+
+                                    // Set the compute pipeline
+                                    compute_pass.set_pipeline(&self.compute_pipeline4);
+
+                                    // Bind resource bindings (if any)
+                                    
+                                    compute_pass.set_bind_group(0, &self.pos_buffer.bind_group, &[]);
+                                    compute_pass.set_bind_group(1, &self.mov_buffers.bind_group, &[]);     
+                                    compute_pass.set_bind_group(2, &self.radii_buffer.bind_group, &[]);    
+                                    compute_pass.set_bind_group(3, &self.contact_buffers.bind_group, &[]);     
+                                    compute_pass.set_bind_group(4, &self.collision_settings.bind_group, &[]);     
+                                    // compute_pass.set_bind_group(5, &self.col_buffer.bind_group, &[]);     
+
+
+                                    // Dispatch the compute shader
+                                    compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
+
+                                    // You can also set other compute pass options, such as memory barriers and synchronization
+
+                                } // The compute pass ends here
+
+                                // Submit the command encoder
+                                config.queue.submit(Some(encoder.finish()));
     }
     
     fn print_particle(i: usize, pos: &[f32], vel: &[f32], radii: &[f32], color: &[f32]) {
