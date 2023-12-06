@@ -31,7 +31,7 @@ struct Settings {
 const deltaTime: f32 = 0.0000390625;
 const PI = 3.141592653589793238;
 
-@compute @workgroup_size(256)
+@compute @workgroup_size(1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     
     
@@ -42,7 +42,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     //OG O(n^2) Collisions
     if settings.collisions == 1 {
         var collision_force = vec2(0.0, 0.0);
-        for(var i = 0u; i<arrayLength(&radii); i++){
+        for(var i = id+1u; i<arrayLength(&radii); i++){
+            // if i == id {
+            //     continue;
+            // }
             //detect collisions
             if length(positions[i] - positions[id]) < (radii[i] + radii[id]){
                 // collision_force += collide(id, i, stiffness, damping);
@@ -83,38 +86,68 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         //create new contacts
         for(var i = 0u; i<count; i++){
-            var existing_index = -1;
-            var empty_index = -1;
-            for(var j = id*max_contacts; j<(id+1u)*max_contacts; j++){
-                if contacts[j].b == collisions[i] {
-                    existing_index = i32(j);
-                } else if contacts[j].b == -1 {
-                    empty_index = i32(j);
+            // if u32(collisions[i]) < id {
+            //     var existing_index = -1;
+            //     var empty_index = -1;
+            //     for(var j = id*max_contacts; j<(id+1u)*max_contacts; j++){
+            //         if contact_pointers[j] >= collisions[i]*i32(max_contacts) && contact_pointers[j] < (collisions[i]+1)*i32(max_contacts){
+            //             existing_index = i32(j);
+            //             break;
+            //         } else if contact_pointers[j] == -1 {
+            //             empty_index = i32(j);
+            //         }
+            //     }
+            //     if existing_index == -1 && empty_index == -1 {
+            //         continue;
+            //     } else if existing_index == -1 { // initialize new contact pointer
+            //         let b = collisions[i];
+                    
+            //         for(var j = u32(b)*max_contacts; j<(u32(b)+1u)*max_contacts; j++) {
+
+            //             if contacts[j].b == i32(id) {
+            //                 // positions[id] = vec2(f32(contacts[j].b), f32(id));
+            //                 contact_pointers[empty_index] = i32(j);
+            //                 // positions[id] = vec2(0.0, f32(j));
+
+            //                 break;
+            //             }
+            //         }
+            //     }
+            // } else {
+                var existing_index = -1;
+                var empty_index = -1;
+                for(var j = id*max_contacts; j<(id+1u)*max_contacts; j++){
+                    if contacts[j].b == collisions[i] {
+                        existing_index = i32(j);
+                        break;
+                    } else if contacts[j].b == -1 {
+                        empty_index = i32(j);
+                    }
+                    
                 }
                 
-            }
-            
-            if existing_index == -1 && empty_index == -1 {
-                continue;
-            } else if existing_index == -1 { // initialize completely new contact
-                let b = collisions[i];
-                let delta = positions[b] - positions[id]; 
-                let delta_norm = normalize(delta); 
-                let overlap = (radii[id] + radii[b]) - length(delta);
-                contacts[empty_index].a = i32(id);
-                contacts[empty_index].angle_a = atan2(delta_norm.x, delta_norm.y);
-                contacts[empty_index].indent = overlap/2.0;
-                contacts[empty_index].b = b;
-                contacts[empty_index].normal_force = 0.0;
-                contacts[empty_index].tangent_force = 0.0;
+                if existing_index == -1 && empty_index == -1 {
+                    continue;
+                } else if existing_index == -1 { // initialize completely new contact
+                    let b = collisions[i];
+                    let delta = positions[b] - positions[id]; 
+                    let delta_norm = normalize(delta); 
+                    let overlap = (radii[id] + radii[b]) - length(delta);
+                    contacts[empty_index].a = i32(id);
+                    contacts[empty_index].angle_a = atan2(delta_norm.x, delta_norm.y);
+                    contacts[empty_index].indent = overlap/2.0;
+                    contacts[empty_index].b = b;
+                    contacts[empty_index].normal_force = 0.0;
+                    contacts[empty_index].tangent_force = 0.0;
 
-                for(var j = u32(b)*max_contacts; j<(u32(b)+1u)*max_contacts; j++) {
-                    if contact_pointers[j] == -1 {
-                        contact_pointers[j] = empty_index;
-                        break;
-                    }
+                    // for(var j = u32(b)*max_contacts; j<(u32(b)+1u)*max_contacts; j++) {
+                    //     if contact_pointers[j] == -1 {
+                    //         contact_pointers[j] = empty_index;
+                    //         break;
+                    //     }
+                    // }
                 }
-            }
+            // }
         }
     }
 

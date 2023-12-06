@@ -43,7 +43,7 @@ const deltaTime: f32 = 0.0000390625;
 const max_contacts = 8u;
 const PI = 3.141592653589793238;
 
-@compute @workgroup_size(256)
+@compute @workgroup_size(1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let id: u32 = global_id.x;
@@ -63,6 +63,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         let delta = positions[b] - positions[a]; 
         let delta_norm = normalize(delta); 
+        let con_pos = positions[a] + delta_norm * (radii[a] - overlap/2.0);
+        let prev_con_pos = 
         contacts[i].angle_a = atan2(delta_norm.x, delta_norm.y);
         contacts[i].length_a = radii[a] - overlap/2.0;
     }

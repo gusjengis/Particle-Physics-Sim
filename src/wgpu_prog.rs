@@ -206,7 +206,7 @@ impl WGPUComputeProg {
         let mut fixity = vec![0; p_count*3];
         let mut bonds = vec![-1; 1];
         let mut bond_info = vec![-1; 1];
-        let mut contacts = vec![-1.0 as f32; 6*config.prog_settings.max_contacts*p_count];
+        let mut contacts = vec![bytemuck::cast::<i32, f32>(-1); 6*config.prog_settings.max_contacts*p_count];
         let mut contact_pointers = vec![-1; 8*p_count];
 
         // Setup initial state, Fill with random values
@@ -397,7 +397,7 @@ impl WGPUComputeProg {
             // compute_pass.set_bind_group(2, &self.col_buffer.bind_group, &[]);     
 
             // Dispatch the compute shader
-            compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
+            compute_pass.dispatch_workgroups(256 as u32, 1, 1);
 
             // You can also set other compute pass options, such as memory barriers and synchronization
 
@@ -432,7 +432,7 @@ impl WGPUComputeProg {
 
 
                     // Dispatch the compute shader
-                    compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
+                    compute_pass.dispatch_workgroups(256 as u32, 1, 1);
 
                     // You can also set other compute pass options, such as memory barriers and synchronization
 
@@ -467,7 +467,7 @@ impl WGPUComputeProg {
 
 
                             // Dispatch the compute shader
-                            compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
+                            compute_pass.dispatch_workgroups(256 as u32, 1, 1);
 
                             // You can also set other compute pass options, such as memory barriers and synchronization
 
@@ -502,7 +502,7 @@ impl WGPUComputeProg {
 
 
                                     // Dispatch the compute shader
-                                    compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
+                                    compute_pass.dispatch_workgroups(256 as u32, 1, 1);
 
                                     // You can also set other compute pass options, such as memory barriers and synchronization
 

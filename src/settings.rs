@@ -46,8 +46,9 @@ pub struct Settings {
 impl Settings {
     pub fn new() -> Self {
         let genPerFrame = 1;
-        let workgroups = 4;
-        let workgroup_size = 256;
+        let particles = 256;
+        let workgroup_size = 1;
+        let workgroups = particles/workgroup_size;
         //particle settings
         let max_radius = 0.1/3.2;
         let variable_rad = true;
@@ -59,7 +60,6 @@ impl Settings {
         let min_h_velocity = 0.0;
         let max_v_velocity = 0.0;
         let min_v_velocity = 0.0;
-        let particles = workgroup_size*workgroups;
         let structure = Structure::Exp2;
         let grid_width = 32.0;
         let settings_menu = false;
