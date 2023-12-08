@@ -54,7 +54,7 @@ impl Settings {
         let variable_rad = true;
         let holeyness = 1.7;
         let min_radius = max_radius/holeyness;
-        let max_bonds = 4;
+        let max_bonds = 6;
         let max_contacts = 8;
         let max_h_velocity = 0.0;
         let min_h_velocity = 0.0;

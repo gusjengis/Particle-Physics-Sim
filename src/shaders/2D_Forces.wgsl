@@ -7,8 +7,9 @@ struct Bond {
 struct Contact {
     a: i32,
     angle_a: f32,
-    length_a: f32,
+    indent: f32,
     b: i32,
+    angle_b: f32,
     normal_force: f32,
     tangent_force: f32
 };
@@ -43,12 +44,13 @@ const deltaTime: f32 = 0.0000390625;
 const max_contacts = 8u;
 const PI = 3.141592653589793238;
 
-@compute @workgroup_size(1)
+@compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let id: u32 = global_id.x;
     
     let stiffness: f32 = 10.0; // Arbitrarily chosen, adjust as per need
+    let shear_stiffness = 0.25; // unit = Force/Unit Length
     let damping: f32 = 0.5; // Damping factor, can be adjusted
 
     //Contacts
@@ -61,12 +63,37 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let overlap = radii[a] + radii[b] - length(positions[b] - positions[a]);
         contacts[i].normal_force = overlap*stiffness;
 
-        let delta = positions[b] - positions[a]; 
-        let delta_norm = normalize(delta); 
-        let con_pos = positions[a] + delta_norm * (radii[a] - overlap/2.0);
-        let prev_con_pos = 
-        contacts[i].angle_a = atan2(delta_norm.x, delta_norm.y);
-        contacts[i].length_a = radii[a] - overlap/2.0;
+
+        // A
+        
+        let norm_a = normalize(positions[a] - positions[b]); 
+        let tang_a = vec2(-norm_a.y, norm_a.x);
+        // let norm_b = normalize(positions[b] - positions[a]); 
+        // let con_pos = positions[a] + norm_a * (radii[a] - overlap/2.0);
+
+        let del_pos_a = velocities[a]*deltaTime;
+        let del_pos_b = velocities[b]*deltaTime;
+        let del_rot_a = rot_vel[a]*deltaTime*(radii[a]-contacts[i].indent);
+        let del_rot_b = rot_vel[b]*deltaTime*(radii[b]-contacts[i].indent);
+
+        let rel_trans = del_pos_b - del_pos_a;
+        let rel_rot = del_rot_b + del_rot_a;
+
+        // let rel_normal = dot(rel_trans, norm_a);
+        let rel_tangent = dot(rel_trans, tang_a) + rel_rot;
+
+        // let prev_con_pos_a = positions[a] + vec2(cos(contacts[i].angle_a + rot[a]), sin(contacts[i].angle_a + rot[a])) * (radii[a] - contacts[i].indent);
+        // let prev_con_pos_b = positions[b] + vec2(cos(contacts[i].angle_b + rot[b]), sin(contacts[i].angle_b + rot[b])) * (radii[b] - contacts[i].indent);
+        // let tangent_a = vec2(-norm_a.y, norm_a.x);
+        // let displacement = dot(tangent_a, prev_con_pos_b - prev_con_pos_a);
+        let friction_limit = abs(contacts[i].normal_force)*settings.friction_coefficient;
+        contacts[i].tangent_force = clamp(contacts[i].tangent_force + rel_tangent*shear_stiffness, -friction_limit, friction_limit);
+        
+
+        //B
+        // contacts[i].angle_a = atan2(norm_a.x, norm_a.y) - rot[a];
+        // contacts[i].angle_b = atan2(norm_b.x, norm_b.y) - rot[b];
+        // contacts[i].indent = overlap/2.0;
     }
 
     // //Bonds

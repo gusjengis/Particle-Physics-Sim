@@ -185,6 +185,7 @@ pub struct WGPUComputeProg {
     pub compute_pipeline2: wgpu::ComputePipeline,
     pub compute_pipeline3: wgpu::ComputePipeline,
     pub compute_pipeline4: wgpu::ComputePipeline,
+    pub compute_pipeline5: wgpu::ComputePipeline,
     // shader1: wgpu::ShaderModule,
     // pub use1: bool,
 }
@@ -206,7 +207,7 @@ impl WGPUComputeProg {
         let mut fixity = vec![0; p_count*3];
         let mut bonds = vec![-1; 1];
         let mut bond_info = vec![-1; 1];
-        let mut contacts = vec![bytemuck::cast::<i32, f32>(-1); 6*config.prog_settings.max_contacts*p_count];
+        let mut contacts = vec![bytemuck::cast::<i32, f32>(-1); 7*config.prog_settings.max_contacts*p_count];
         let mut contact_pointers = vec![-1; 8*p_count];
 
         // Setup initial state, Fill with random values
@@ -311,10 +312,15 @@ impl WGPUComputeProg {
             source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/2D_Particle_Forces.wgsl").into()),
         });
 
+        let compute_shader5 = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/2D_Collision_Pointers.wgsl").into()),
+        });
+
         //create pipeline layout
         let compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("LOM compute"),
-            bind_group_layouts: &[&pos_buffer.bind_group_layout, &mov_buffers.bind_group_layout],// &col_buffer.bind_group_layout],
+            bind_group_layouts: &[&pos_buffer.bind_group_layout, &mov_buffers.bind_group_layout, &radii_buffer.bind_group_layout, &contact_buffers.bind_group_layout, &collision_settings.bind_group_layout],// &col_buffer.bind_group_layout],
             push_constant_ranges: &[]
         });
 
@@ -330,6 +336,12 @@ impl WGPUComputeProg {
         });
         let compute_pipeline_layout4 = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Particle Force compute"),
+            bind_group_layouts: &[&pos_buffer.bind_group_layout, &mov_buffers.bind_group_layout, &radii_buffer.bind_group_layout, &contact_buffers.bind_group_layout, &collision_settings.bind_group_layout],// &col_buffer.bind_group_layout],
+            push_constant_ranges: &[]
+        });
+
+        let compute_pipeline_layout5 = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Collision Pointer compute"),
             bind_group_layouts: &[&pos_buffer.bind_group_layout, &mov_buffers.bind_group_layout, &radii_buffer.bind_group_layout, &contact_buffers.bind_group_layout, &collision_settings.bind_group_layout],// &col_buffer.bind_group_layout],
             push_constant_ranges: &[]
         });
@@ -363,6 +375,13 @@ impl WGPUComputeProg {
             entry_point: "main",
         });
 
+        let compute_pipeline5 = config.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: None,
+            layout: Some(&compute_pipeline_layout5),
+            module: &compute_shader5,
+            entry_point: "main",
+        });
+
         Self {
             pos_buffer,
             mov_buffers,
@@ -374,7 +393,8 @@ impl WGPUComputeProg {
             compute_pipeline,
             compute_pipeline2,
             compute_pipeline3,
-            compute_pipeline4
+            compute_pipeline4,
+            compute_pipeline5,
         }
     }
 
@@ -393,11 +413,14 @@ impl WGPUComputeProg {
             // Bind resource bindings (if any)
             
             compute_pass.set_bind_group(0, &self.pos_buffer.bind_group, &[]);
-            compute_pass.set_bind_group(1, &self.mov_buffers.bind_group, &[]);     
+            compute_pass.set_bind_group(1, &self.mov_buffers.bind_group, &[]);   
+            compute_pass.set_bind_group(2, &self.radii_buffer.bind_group, &[]);    
+            compute_pass.set_bind_group(3, &self.contact_buffers.bind_group, &[]);         
+            compute_pass.set_bind_group(4, &self.collision_settings.bind_group, &[]);   
             // compute_pass.set_bind_group(2, &self.col_buffer.bind_group, &[]);     
 
             // Dispatch the compute shader
-            compute_pass.dispatch_workgroups(256 as u32, 1, 1);
+            compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
 
             // You can also set other compute pass options, such as memory barriers and synchronization
 
@@ -432,7 +455,7 @@ impl WGPUComputeProg {
 
 
                     // Dispatch the compute shader
-                    compute_pass.dispatch_workgroups(256 as u32, 1, 1);
+                    compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
 
                     // You can also set other compute pass options, such as memory barriers and synchronization
 
@@ -440,6 +463,39 @@ impl WGPUComputeProg {
 
                 // Submit the command encoder
                 config.queue.submit(Some(encoder.finish()));
+
+            // let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+            // let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
+
+            // if config.prog_settings.changed_collision_settings {
+            //     self.collision_settings.updateUniform(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()));
+            // }
+            // {
+            //     let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
+
+            //     // Set the compute pipeline
+            //     compute_pass.set_pipeline(&self.compute_pipeline5);
+
+            //     // Bind resource bindings (if any)
+                
+            //     compute_pass.set_bind_group(0, &self.pos_buffer.bind_group, &[]);
+            //     compute_pass.set_bind_group(1, &self.mov_buffers.bind_group, &[]);     
+            //     compute_pass.set_bind_group(2, &self.radii_buffer.bind_group, &[]);    
+            //     compute_pass.set_bind_group(3, &self.contact_buffers.bind_group, &[]);         
+            //     compute_pass.set_bind_group(4, &self.collision_settings.bind_group, &[]);     
+            //     // compute_pass.set_bind_group(5, &self.col_buffer.bind_group, &[]);     
+
+
+            //     // Dispatch the compute shader
+            //     compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
+
+            //     // You can also set other compute pass options, such as memory barriers and synchronization
+
+            // } // The compute pass ends here
+
+            // // Submit the command encoder
+            // config.queue.submit(Some(encoder.finish()));
 
 
 
@@ -467,7 +523,7 @@ impl WGPUComputeProg {
 
 
                             // Dispatch the compute shader
-                            compute_pass.dispatch_workgroups(256 as u32, 1, 1);
+                            compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
 
                             // You can also set other compute pass options, such as memory barriers and synchronization
 
@@ -502,7 +558,7 @@ impl WGPUComputeProg {
 
 
                                     // Dispatch the compute shader
-                                    compute_pass.dispatch_workgroups(256 as u32, 1, 1);
+                                    compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
 
                                     // You can also set other compute pass options, such as memory barriers and synchronization
 

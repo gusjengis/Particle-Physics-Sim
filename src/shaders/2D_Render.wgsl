@@ -139,9 +139,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             if bonds[i].index == -1 {
                 continue;
             }
+            let displacement = (bonds[i].length - length(pos_buf[in.id] - pos_buf[bonds[i].index])) * 5.0;
             let dir = normalize(pos_buf[bonds[i].index] - pos_buf[in.id]);
             if dot(dir, normalize(in.position)) > 0.99 {
-                color = vec4(1.0, 1.0, 1.0, 1.0);
+
+                color = vec4(0.0 - displacement, 0.0 + displacement, 0.0 - abs(displacement), 1.0);
             }            
         }
     }

@@ -3,6 +3,7 @@ struct Contact {
     angle_a: f32,
     indent: f32,
     b: i32,
+    angle_b: f32,
     normal_force: f32,
     tangent_force: f32
 };
@@ -31,7 +32,7 @@ struct Settings {
 const deltaTime: f32 = 0.0000390625;
 const PI = 3.141592653589793238;
 
-@compute @workgroup_size(1)
+@compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     
     
@@ -134,7 +135,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                     let delta_norm = normalize(delta); 
                     let overlap = (radii[id] + radii[b]) - length(delta);
                     contacts[empty_index].a = i32(id);
-                    contacts[empty_index].angle_a = atan2(delta_norm.x, delta_norm.y);
+                    contacts[empty_index].angle_a = atan2(delta_norm.x, delta_norm.y) - rot[id];
+                    contacts[empty_index].angle_b = contacts[empty_index].angle_a + PI - rot[b];
                     contacts[empty_index].indent = overlap/2.0;
                     contacts[empty_index].b = b;
                     contacts[empty_index].normal_force = 0.0;

@@ -7,8 +7,9 @@ struct Bond {
 struct Contact {
     a: i32,
     angle_a: f32,
-    length_a: f32,
+    indent: f32,
     b: i32,
+    angle_b: f32,
     normal_force: f32,
     tangent_force: f32
 };
@@ -45,23 +46,26 @@ const deltaTime: f32 = 0.0000390625;
 const max_contacts = 8u;
 const PI = 3.141592653589793238;
 
-@compute @workgroup_size(1)
+@compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let id: u32 = global_id.x;
     let stiffness: f32 = 10.0; // Arbitrarily chosen, adjust as per need
-    let damping: f32 = 0.5; // Damping factor, can be adjusted
-    
+    let damping: f32 = 0.2; // Damping factor, can be adjusted
+
     var net_force = vec2(0.0, 0.0);
+    var net_moment = 0.0;
 
     if settings.collisions == 1 {
         // higher ids
         for(var i = id*max_contacts; i<(id+1u)*max_contacts; i++){
             if contacts[i].b != -1 { 
-                let a = min(contacts[i].a, contacts[i].b);
-                let b = max(contacts[i].a, contacts[i].b);
+                let a = contacts[i].a;
+                let b = contacts[i].b;
                 let normal = normalize(positions[a] - positions[b]); 
-                net_force +=  damping * (normal*contacts[i].normal_force);
+                let tangent = vec2(-normal.y, normal.x);
+                net_force += damping * (normal*contacts[i].normal_force + tangent*contacts[i].tangent_force);
+                net_moment -= (radii[a] - contacts[i].indent)*contacts[i].tangent_force;
             }
             // else if contact_pointers[i] != -1 {
             //     let contact = contacts[contact_pointers[i]];
@@ -80,15 +84,16 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             if contacts[i].b != i32(id){
                 continue;
             }
-            let index = i;
-            let a = contacts[index].b;
-            let b = contacts[index].a;
+            let a = contacts[i].b;
+            let b = contacts[i].a;
             let normal = normalize(positions[a] - positions[b]); 
-            net_force +=  damping * (normal*contacts[index].normal_force);
+            let tangent = vec2(-normal.y, normal.x);
+            net_force += damping * (normal*contacts[i].normal_force + tangent*contacts[i].tangent_force);
+            net_moment -= (radii[a] - contacts[i].indent)*contacts[i].tangent_force;
         }
     }
 
-
+    
     
     //Bonds
     if settings.bonds == 1 {
@@ -106,65 +111,69 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 // Linear Bonds, this is working
                 if settings.linear_contact_bonds == 1 {
                     let dist: f32 = length(positions[bond_id] - positions[id]);
-                    let ideal_length: f32 = bonds[i].length;//(radii[id] + radii[bond_id]);
+                    let ideal_length: f32 = (radii[id] + radii[bond_id]);//bonds[i].length;////
                     let displacement: f32 = ideal_length - dist;
                     let spring_force: vec2<f32> = stiffness/100.0 * displacement * normalize(positions[bond_id] - positions[id]);
-                    let mass1: f32 = 3.14159265 * radii[id] * radii[id];
-                    var force = (spring_force / mass1) * damping;
+                    var force = (spring_force) * damping;
                     net_force -= force;
                     // if length(force) > normal_lim {
                     //     bonds[i].index = -1;
                     // }
                 } else {
+                    let ideal_position = positions[bond_id] + vec2(cos(bonds[i].angle + rot[bond_id]), sin(bonds[i].angle + rot[bond_id]))*bonds[i].length;
+                    let displacement: f32 = length(ideal_position - positions[id]);
+                    let spring_force: vec2<f32> = displacement * normalize(ideal_position - positions[id]);
+                    var force = (spring_force) * damping;
+                    net_force -= force;
                     // Parallel Bonds, wip
 
-                    let left_stiffness = 100.0;
-                    let right_stiffness = 100.0;
-                    let shear_stiffness = 100.0;
-                    let mass = 3.14159265 * radii[id] * radii[id];
-                    let rot_inertia = 0.5*mass*radii[id]*radii[id];
-                    let R = sqrt(radii[id]*radii[bond_id]);
+                    // let left_stiffness = 100.0;
+                    // let right_stiffness = 100.0;
+                    // let shear_stiffness = 100.0;
+                    // let mass = 3.14159265 * radii[id] * radii[id];
+                    // let rot_inertia = 0.5*mass*radii[id]*radii[id];
+                    // let R = sqrt(radii[id]*radii[bond_id]);
                     
-                    // left spring
+                    // // left spring
 
-                    let pos_A = positions[id];
-                    let pos_B = positions[bond_id];
-                    var angle_A = (rot[id] + bonds[i].angle + PI/2.0);
-                    var angle_B = (rot[bond_id] + bonds[i].angle + PI/2.0);
-                    // angle_A = sign(angle_A) * (abs(angle_A) % 2.0*PI);
-                    // angle_B = sign(angle_B) * (abs(angle_B) % 2.0*PI);
-                    let left_spring_end_A = pos_A + R*vec2(cos(angle_A), sin(angle_A));
-                    let left_spring_end_B = pos_B + R*vec2(cos(angle_B), sin(angle_B));
-                    let left_spring_dir = normalize(left_spring_end_B - left_spring_end_A);
-                    let left_spring_length = length(left_spring_end_A - left_spring_end_B);
-                    let ideal_length = bonds[i].length;
-                    let left_displacement = left_spring_length - ideal_length ;
-                    let left_force_magnitude = left_displacement*left_stiffness;
+                    // let pos_A = positions[id];
+                    // let pos_B = positions[bond_id];
+                    // var angle_A = (rot[id] + bonds[i].angle + PI/2.0);
+                    // var angle_B = (rot[bond_id] + bonds[i].angle + PI/2.0);
+                    // // angle_A = sign(angle_A) * (abs(angle_A) % 2.0*PI);
+                    // // angle_B = sign(angle_B) * (abs(angle_B) % 2.0*PI);
+                    // let left_spring_end_A = pos_A + R*vec2(cos(angle_A), sin(angle_A));
+                    // let left_spring_end_B = pos_B + R*vec2(cos(angle_B), sin(angle_B));
+                    // let left_spring_dir = normalize(left_spring_end_B - left_spring_end_A);
+                    // let left_spring_length = length(left_spring_end_A - left_spring_end_B);
+                    // let ideal_length = bonds[i].length;
+                    // let left_displacement = left_spring_length - ideal_length ;
+                    // let left_force_magnitude = left_displacement*left_stiffness;
     
     
-                    let left_moment = R * left_force_magnitude;
+                    // let left_moment = R * left_force_magnitude;
 
-                    // right spring 
+                    // // right spring 
 
-                    let right_spring_end_A = pos_A + R*vec2(cos(angle_A + PI), sin(angle_A + PI));
-                    let right_spring_end_B = pos_B + R*vec2(cos(angle_B + PI), sin(angle_B + PI));
-                    let right_spring_dir = normalize(right_spring_end_B - right_spring_end_A);
-                    let right_spring_length = length(right_spring_end_A - right_spring_end_B);
-                    let right_displacement = right_spring_length - ideal_length;
-                    let right_force_magnitude = right_displacement*right_stiffness;
-                    let right_moment = -R * right_force_magnitude;
+                    // let right_spring_end_A = pos_A + R*vec2(cos(angle_A + PI), sin(angle_A + PI));
+                    // let right_spring_end_B = pos_B + R*vec2(cos(angle_B + PI), sin(angle_B + PI));
+                    // let right_spring_dir = normalize(right_spring_end_B - right_spring_end_A);
+                    // let right_spring_length = length(right_spring_end_A - right_spring_end_B);
+                    // let right_displacement = right_spring_length - ideal_length;
+                    // let right_force_magnitude = right_displacement*right_stiffness;
+                    // let right_moment = -R * right_force_magnitude;
 
-                    // shear spring
-                    let bond_dir = vec2(-sin(rot[bond_id] + bonds[i].angle + PI), cos(rot[bond_id] + bonds[i].angle + PI));
-                    let tangent_dir = vec2(-bond_dir.y, bond_dir.x);
-                    let ideal_postition = pos_B + ideal_length*bond_dir;
-                    let displacement = ideal_postition - pos_A;
-                    let shear_force = dot(displacement, tangent_dir)*shear_stiffness;
-                    //apply forces
+                    // // shear spring
+                    // let bond_dir = vec2(-sin(rot[bond_id] + bonds[i].angle + PI), cos(rot[bond_id] + bonds[i].angle + PI));
+                    // let tangent_dir = vec2(-bond_dir.y, bond_dir.x);
+                    // let ideal_postition = pos_B + ideal_length*bond_dir;
+                    // let displacement = ideal_postition - pos_A;
+                    // let shear_force = dot(displacement, tangent_dir)*shear_stiffness;
+                    // //apply forces
 
-                    rot_vel_buf[id] += (left_moment + right_moment);// / rot_inertia;
-                    rot_vel_buf[id] += (-shear_force);// / rot_inertia;
-                    net_force += (right_spring_dir * right_force_magnitude + left_spring_dir * left_force_magnitude + shear_force*tangent_dir);//
+                    // rot_vel_buf[id] += (left_moment + right_moment);// / rot_inertia;
+                    // rot_vel_buf[id] += (-shear_force);// / rot_inertia;
+                    // net_force += (right_spring_dir * right_force_magnitude + left_spring_dir * left_force_magnitude + shear_force*tangent_dir);//
 
 
                         // let R = sqrt(radii[id]*radii[bond_id]);
@@ -205,8 +214,11 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             }
         }
     }
+
     let mass1 = PI * radii[id] * radii[id];
+    let rot_inertia = 0.5*mass1*radii[id]*radii[id];
     velocities_buf[id] = velocities[id] + net_force/mass1;
+    rot_vel_buf[id] = rot_vel[id] + net_moment/rot_inertia;
     if settings.gravity == 1 {
         let gravity = settings.gravity_acc * deltaTime;
         velocities_buf[id] += vec2(0.0, -gravity);
@@ -237,4 +249,5 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         rot_vel_buf[id] = rot_vel_buf[id]*0.9;
         positions[id] = vec2(pos.x, -yH+rad);
     }
+
 }
