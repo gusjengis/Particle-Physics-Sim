@@ -34,7 +34,8 @@ struct Settings {
     colors: i32,
     render_bonds: i32,
     w: f32,
-    h: f32
+    h: f32,
+    stiffness: f32
 }
 
 struct Bond {
@@ -136,15 +137,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     if settings.render_bonds == 1 && bond_info[in.id].x != -1 {
         for(var i = bond_info[in.id].x; i<bond_info[in.id].x+bond_info[in.id].y; i++){
-            if bonds[i].index == -1 {
-                continue;
-            }
-            let displacement = (bonds[i].length - length(pos_buf[in.id] - pos_buf[bonds[i].index])) * 5.0;
-            let dir = normalize(pos_buf[bonds[i].index] - pos_buf[in.id]);
+            let displacement = (bonds[i].length - length(pos_buf[in.id] - pos_buf[abs(bonds[i].index)])) * 255.0 * settings.stiffness;
+            let dir = normalize(pos_buf[abs(bonds[i].index)] - pos_buf[in.id]);
             if dot(dir, normalize(in.position)) > 0.99 {
 
-                color = vec4(0.0 - displacement, 0.0 + displacement, 0.0 - abs(displacement), 1.0);
-            }            
+                color = vec4(1.0 - displacement, 1.0 + displacement, 1.0 - abs(displacement), 1.0);
+                if bonds[i].index < 0 {
+                    color = vec4(0.8, 0.0, 1.0, 1.0);
+                    // continue;
+                }
+            }
         }
     }
     

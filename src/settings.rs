@@ -28,6 +28,9 @@ pub struct Settings {
     pub gravity: bool,
     pub gravity_acceleration: f32,
     pub bonds: bool,
+    pub bond_tearing: bool,
+    pub bond_force_limit: f32,
+    pub stiffness: f32,
     pub collisions: bool,
     pub friction: bool,
     pub friction_coefficient: f32,
@@ -69,6 +72,9 @@ impl Settings {
         let gravity = true;
         let gravity_acceleration = 9.8;
         let bonds = true;
+        let bond_tearing = false;
+        let bond_force_limit = 0.5;
+        let stiffness = 0.1;
         let collisions = true;
         let friction = true;
         let friction_coefficient = 0.5;
@@ -106,6 +112,9 @@ impl Settings {
             gravity,
             gravity_acceleration,
             bonds,
+            bond_tearing,
+            bond_force_limit,
+            stiffness,
             collisions,
             friction,
             friction_coefficient,
@@ -232,8 +241,21 @@ impl Settings {
                             self.changed_collision_settings = true;
                         }
                         if self.bonds {
+                            if ui.add(egui::Slider::new(&mut self.stiffness, 0.0..=10.0).step_by(0.01).
+                            text("Stiffness")).changed() {
+                                        self.changed_collision_settings = true;
+                                    };
                             if ui.checkbox(&mut self.linear_contact_bonds, "Linear Bonds").changed() {
                                 self.changed_collision_settings = true;
+                            }
+                            if ui.checkbox(&mut self.bond_tearing, "Bond Tearing").changed() {
+                                self.changed_collision_settings = true;
+                            }
+                            if self.bond_tearing {
+                                if ui.add(egui::Slider::new(&mut self.bond_force_limit, 0.0..=5.0).step_by(0.0001).
+                                text("Tear Limit")).changed() {
+                                            self.changed_collision_settings = true;
+                                        };
                             }
                         }
                         if ui.checkbox(&mut self.collisions, "Collisions").changed() {
@@ -300,14 +322,17 @@ impl Settings {
         return vec![
             self.hor_bound,
             self.vert_bound,
-            bytemuck::cast(1 as i32 * self.gravity as i32),
-            bytemuck::cast(1 as i32 * self.bonds as i32),
-            bytemuck::cast(1 as i32 * self.collisions as i32),
-            bytemuck::cast(1 as i32 * self.friction as i32),
+            bytemuck::cast(self.gravity as i32),
+            bytemuck::cast(self.bonds as i32),
+            bytemuck::cast(self.collisions as i32),
+            bytemuck::cast(self.friction as i32),
             self.friction_coefficient,
-            bytemuck::cast(1 as i32 * self.rotation as i32),
-            bytemuck::cast(1 as i32 * self.linear_contact_bonds as i32),
-            self.gravity_acceleration
+            bytemuck::cast(self.rotation as i32),
+            bytemuck::cast(self.linear_contact_bonds as i32),
+            self.gravity_acceleration,
+            self.stiffness,
+            bytemuck::cast(self.bond_tearing as i32),
+            self.bond_force_limit
 
         ];
     }
@@ -321,6 +346,7 @@ impl Settings {
             (self.bonds && self.render_bonds) as i32,
             self.hor_bound.to_bits() as i32,
             self.vert_bound.to_bits() as i32,
+            self.stiffness.to_bits() as i32,
         ];
     }
 

@@ -310,18 +310,18 @@ pub fn exp4(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
     settings.two_part = true;
 
     //            A                  B
-    pos[0]     =  -1.0; pos[2]     = 1.0; // X
-    pos[1]     =  1.1; pos[3]     = -1.1; // Y
+    pos[0]     =  -0.2; pos[2]     = 0.2; // X
+    pos[1]     =  0.0; pos[3]     =  0.0; // Y
     rot[0]     =  0.0; rot[1]     =  0.0; // Angle
-    vel[0]     =  1.0; vel[2]     = -1.0; // X Velocity
-    vel[1]     = -1.0; vel[3]     =  1.0; // Y Velocity
-    rot_vel[0] =  0.0; rot_vel[1] =  0.0; // Angular Velocity
+    vel[0]     =  0.0; vel[2]     =  0.0; // X Velocity
+    vel[1]     =  0.0; vel[3]     =  0.0; // Y Velocity
+    rot_vel[0] =  0.0; rot_vel[1] =  10.0; // Angular Velocity
     radii[0]   =  0.2; radii[1]   =  0.2; // Radius
 
     //Fixity
     //          A              B
-    fixity[0] = 0; fixity[3] = 0; // X-Velocity
-    fixity[1] = 0; fixity[4] = 0; // Y-Velocity
+    fixity[0] = 0; fixity[3] = 1; // X-Velocity
+    fixity[1] = 1; fixity[4] = 1; // Y-Velocity
     fixity[2] = 0; fixity[5] = 0; // Angular-Velocity
     
     //Forces
@@ -329,7 +329,7 @@ pub fn exp4(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
     forces[0] =  0.0; forces[6]  =  0.0; // X-Force
     forces[1] =  0.0; forces[7]  =  0.0; // Y-Force
     forces[2] =  0.0; forces[8]  =  0.0; // Moment
-    forces[3] =  0.0; forces[9]  =  0.0; // X-Force Vel
+    forces[3] =  500.0; forces[9]  =  0.0; // X-Force Vel
     forces[4] =  0.0; forces[10] =  0.0; // Y-Force Vel
     forces[5] =  0.0; forces[11] =  0.0; // Moment Vel
     return (vec![-1; 2*2], vec![-1; 2*settings.max_bonds]);

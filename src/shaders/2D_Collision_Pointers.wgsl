@@ -18,7 +18,8 @@ struct Settings {
     friction_coefficient: f32,
     rotation: i32,
     linear_contact_bonds: i32,
-    gravity_acc: f32
+    gravity_acc: f32,
+    stiffness: f32
 }
 
 @group(0) @binding(0) var<storage, read_write> positions: array<vec2<f32>>;

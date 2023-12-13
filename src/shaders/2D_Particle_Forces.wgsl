@@ -24,7 +24,8 @@ struct Settings {
     friction_coefficient: f32,
     rotation: i32,
     linear_contact_bonds: i32,
-    gravity_acc: f32
+    gravity_acc: f32,
+    stiffness: f32
 }
 
 @group(0) @binding(0) var<storage, read_write> positions: array<vec2<f32>>;
@@ -50,7 +51,6 @@ const PI = 3.141592653589793238;
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let id: u32 = global_id.x;
-    let stiffness: f32 = 10.0; // Arbitrarily chosen, adjust as per need
     let damping: f32 = 0.2; // Damping factor, can be adjusted
 
     var net_force = vec2(0.0, 0.0);
@@ -66,7 +66,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 let tangent = vec2(-normal.y, normal.x);
                 net_force += damping * (normal*contacts[i].normal_force + tangent*contacts[i].tangent_force);
                 net_moment -= (radii[a] - contacts[i].indent)*contacts[i].tangent_force;
-            }
+            }   
             // else if contact_pointers[i] != -1 {
             //     let contact = contacts[contact_pointers[i]];
             //     let a = contact.b;
@@ -111,9 +111,9 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 // Linear Bonds, this is working
                 if settings.linear_contact_bonds == 1 {
                     let dist: f32 = length(positions[bond_id] - positions[id]);
-                    let ideal_length: f32 = (radii[id] + radii[bond_id]);//bonds[i].length;////
+                    let ideal_length: f32 = bonds[i].length;//(radii[id] + radii[bond_id]);//////
                     let displacement: f32 = ideal_length - dist;
-                    let spring_force: vec2<f32> = stiffness/100.0 * displacement * normalize(positions[bond_id] - positions[id]);
+                    let spring_force: vec2<f32> = settings.stiffness * displacement * normalize(positions[bond_id] - positions[id]);
                     var force = (spring_force) * damping;
                     net_force -= force;
                     // if length(force) > normal_lim {
@@ -201,7 +201,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                     // }
                     // let ideal_length: f32 = 0.0;
                     // let displacement2: f32 = ideal_length - length(bond_point_b-bond_point_a);
-                    // let spring_force: vec2<f32> = stiffness/100.0 * displacement * normalize(bond_point_b-bond_point_a);
+                    // let spring_force: vec2<f32> = settings.stiffness * displacement * normalize(bond_point_b-bond_point_a);
                     // let mass1: f32 = 3.14159265 * radii[id] * radii[id];
                     // let mass2: f32 = 3.14159265 * radii[bond_id] * radii[bond_id];
                     // let force = (spring_force / mass1) * damping;

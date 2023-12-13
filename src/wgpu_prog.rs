@@ -207,7 +207,7 @@ impl WGPUComputeProg {
         let mut fixity = vec![0; p_count*3];
         let mut bonds = vec![-1; 1];
         let mut bond_info = vec![-1; 1];
-        let mut contacts = vec![bytemuck::cast::<i32, f32>(-1); 7*config.prog_settings.max_contacts*p_count];
+        let mut contacts = vec![bytemuck::cast::<i32, f32>(-1); 3*config.prog_settings.max_contacts*p_count];
         let mut contact_pointers = vec![-1; 8*p_count];
 
         // Setup initial state, Fill with random values
@@ -294,7 +294,7 @@ impl WGPUComputeProg {
         //create shaders
         let compute_shader = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
-            source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/2D_LOM.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/2D_Simulation.wgsl").into()),
         });
 
         let compute_shader2 = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -403,6 +403,10 @@ impl WGPUComputeProg {
         let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
         let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
+    
+        if config.prog_settings.changed_collision_settings {
+            self.collision_settings.updateUniform(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()));
+        }
 
         {
             let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
@@ -431,141 +435,141 @@ impl WGPUComputeProg {
 
 
 
-                let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            //     let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-                let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
+            //     let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
 
-                if config.prog_settings.changed_collision_settings {
-                    self.collision_settings.updateUniform(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()));
-                }
-                {
-                    let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
+            //     if config.prog_settings.changed_collision_settings {
+            //         self.collision_settings.updateUniform(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()));
+            //     }
+            //     {
+            //         let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
 
-                    // Set the compute pipeline
-                    compute_pass.set_pipeline(&self.compute_pipeline2);
+            //         // Set the compute pipeline
+            //         compute_pass.set_pipeline(&self.compute_pipeline2);
 
-                    // Bind resource bindings (if any)
+            //         // Bind resource bindings (if any)
                     
-                    compute_pass.set_bind_group(0, &self.pos_buffer.bind_group, &[]);
-                    compute_pass.set_bind_group(1, &self.mov_buffers.bind_group, &[]);     
-                    compute_pass.set_bind_group(2, &self.radii_buffer.bind_group, &[]);    
-                    compute_pass.set_bind_group(3, &self.contact_buffers.bind_group, &[]);         
-                    compute_pass.set_bind_group(4, &self.collision_settings.bind_group, &[]);     
-                    // compute_pass.set_bind_group(5, &self.col_buffer.bind_group, &[]);     
+            //         compute_pass.set_bind_group(0, &self.pos_buffer.bind_group, &[]);
+            //         compute_pass.set_bind_group(1, &self.mov_buffers.bind_group, &[]);     
+            //         compute_pass.set_bind_group(2, &self.radii_buffer.bind_group, &[]);    
+            //         compute_pass.set_bind_group(3, &self.contact_buffers.bind_group, &[]);         
+            //         compute_pass.set_bind_group(4, &self.collision_settings.bind_group, &[]);     
+            //         // compute_pass.set_bind_group(5, &self.col_buffer.bind_group, &[]);     
 
 
-                    // Dispatch the compute shader
-                    compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
+            //         // Dispatch the compute shader
+            //         compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
 
-                    // You can also set other compute pass options, such as memory barriers and synchronization
+            //         // You can also set other compute pass options, such as memory barriers and synchronization
 
-                } // The compute pass ends here
+            //     } // The compute pass ends here
 
-                // Submit the command encoder
-                config.queue.submit(Some(encoder.finish()));
+            //     // Submit the command encoder
+            //     config.queue.submit(Some(encoder.finish()));
 
-            // let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            // // let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-            // let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
+            // // let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
 
-            // if config.prog_settings.changed_collision_settings {
-            //     self.collision_settings.updateUniform(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()));
-            // }
-            // {
-            //     let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
+            // // if config.prog_settings.changed_collision_settings {
+            // //     self.collision_settings.updateUniform(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()));
+            // // }
+            // // {
+            // //     let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
 
-            //     // Set the compute pipeline
-            //     compute_pass.set_pipeline(&self.compute_pipeline5);
+            // //     // Set the compute pipeline
+            // //     compute_pass.set_pipeline(&self.compute_pipeline5);
 
-            //     // Bind resource bindings (if any)
+            // //     // Bind resource bindings (if any)
                 
-            //     compute_pass.set_bind_group(0, &self.pos_buffer.bind_group, &[]);
-            //     compute_pass.set_bind_group(1, &self.mov_buffers.bind_group, &[]);     
-            //     compute_pass.set_bind_group(2, &self.radii_buffer.bind_group, &[]);    
-            //     compute_pass.set_bind_group(3, &self.contact_buffers.bind_group, &[]);         
-            //     compute_pass.set_bind_group(4, &self.collision_settings.bind_group, &[]);     
-            //     // compute_pass.set_bind_group(5, &self.col_buffer.bind_group, &[]);     
+            // //     compute_pass.set_bind_group(0, &self.pos_buffer.bind_group, &[]);
+            // //     compute_pass.set_bind_group(1, &self.mov_buffers.bind_group, &[]);     
+            // //     compute_pass.set_bind_group(2, &self.radii_buffer.bind_group, &[]);    
+            // //     compute_pass.set_bind_group(3, &self.contact_buffers.bind_group, &[]);         
+            // //     compute_pass.set_bind_group(4, &self.collision_settings.bind_group, &[]);     
+            // //     // compute_pass.set_bind_group(5, &self.col_buffer.bind_group, &[]);     
 
 
-            //     // Dispatch the compute shader
-            //     compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
+            // //     // Dispatch the compute shader
+            // //     compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
 
-            //     // You can also set other compute pass options, such as memory barriers and synchronization
+            // //     // You can also set other compute pass options, such as memory barriers and synchronization
 
-            // } // The compute pass ends here
+            // // } // The compute pass ends here
 
-            // // Submit the command encoder
-            // config.queue.submit(Some(encoder.finish()));
+            // // // Submit the command encoder
+            // // config.queue.submit(Some(encoder.finish()));
 
 
 
-                        let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            //             let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-                        let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
+            //             let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
 
-                        if config.prog_settings.changed_collision_settings {
-                            self.collision_settings.updateUniform(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()));
-                        }
-                        {
-                            let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
+            //             if config.prog_settings.changed_collision_settings {
+            //                 self.collision_settings.updateUniform(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()));
+            //             }
+            //             {
+            //                 let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
 
-                            // Set the compute pipeline
-                            compute_pass.set_pipeline(&self.compute_pipeline3);
+            //                 // Set the compute pipeline
+            //                 compute_pass.set_pipeline(&self.compute_pipeline3);
 
-                            // Bind resource bindings (if any)
+            //                 // Bind resource bindings (if any)
                             
-                            compute_pass.set_bind_group(0, &self.pos_buffer.bind_group, &[]);
-                            compute_pass.set_bind_group(1, &self.mov_buffers.bind_group, &[]);     
-                            compute_pass.set_bind_group(2, &self.radii_buffer.bind_group, &[]);    
-                            compute_pass.set_bind_group(3, &self.contact_buffers.bind_group, &[]);      
-                            compute_pass.set_bind_group(4, &self.collision_settings.bind_group, &[]);     
-                            // compute_pass.set_bind_group(5, &self.col_buffer.bind_group, &[]);     
+            //                 compute_pass.set_bind_group(0, &self.pos_buffer.bind_group, &[]);
+            //                 compute_pass.set_bind_group(1, &self.mov_buffers.bind_group, &[]);     
+            //                 compute_pass.set_bind_group(2, &self.radii_buffer.bind_group, &[]);    
+            //                 compute_pass.set_bind_group(3, &self.contact_buffers.bind_group, &[]);      
+            //                 compute_pass.set_bind_group(4, &self.collision_settings.bind_group, &[]);     
+            //                 // compute_pass.set_bind_group(5, &self.col_buffer.bind_group, &[]);     
 
 
-                            // Dispatch the compute shader
-                            compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
+            //                 // Dispatch the compute shader
+            //                 compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
 
-                            // You can also set other compute pass options, such as memory barriers and synchronization
+            //                 // You can also set other compute pass options, such as memory barriers and synchronization
 
-                        } // The compute pass ends here
+            //             } // The compute pass ends here
 
-                        // Submit the command encoder
-                        config.queue.submit(Some(encoder.finish()));
+            //             // Submit the command encoder
+            //             config.queue.submit(Some(encoder.finish()));
 
 
 
-                                let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            //                     let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-                                let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
+            //                     let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
 
-                                if config.prog_settings.changed_collision_settings {
-                                    self.collision_settings.updateUniform(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()));
-                                }
-                                {
-                                    let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
+            //                     if config.prog_settings.changed_collision_settings {
+            //                         self.collision_settings.updateUniform(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()));
+            //                     }
+            //                     {
+            //                         let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
 
-                                    // Set the compute pipeline
-                                    compute_pass.set_pipeline(&self.compute_pipeline4);
+            //                         // Set the compute pipeline
+            //                         compute_pass.set_pipeline(&self.compute_pipeline4);
 
-                                    // Bind resource bindings (if any)
+            //                         // Bind resource bindings (if any)
                                     
-                                    compute_pass.set_bind_group(0, &self.pos_buffer.bind_group, &[]);
-                                    compute_pass.set_bind_group(1, &self.mov_buffers.bind_group, &[]);     
-                                    compute_pass.set_bind_group(2, &self.radii_buffer.bind_group, &[]);    
-                                    compute_pass.set_bind_group(3, &self.contact_buffers.bind_group, &[]);     
-                                    compute_pass.set_bind_group(4, &self.collision_settings.bind_group, &[]);     
-                                    // compute_pass.set_bind_group(5, &self.col_buffer.bind_group, &[]);     
+            //                         compute_pass.set_bind_group(0, &self.pos_buffer.bind_group, &[]);
+            //                         compute_pass.set_bind_group(1, &self.mov_buffers.bind_group, &[]);     
+            //                         compute_pass.set_bind_group(2, &self.radii_buffer.bind_group, &[]);    
+            //                         compute_pass.set_bind_group(3, &self.contact_buffers.bind_group, &[]);     
+            //                         compute_pass.set_bind_group(4, &self.collision_settings.bind_group, &[]);     
+            //                         // compute_pass.set_bind_group(5, &self.col_buffer.bind_group, &[]);     
 
 
-                                    // Dispatch the compute shader
-                                    compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
+            //                         // Dispatch the compute shader
+            //                         compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
 
-                                    // You can also set other compute pass options, such as memory barriers and synchronization
+            //                         // You can also set other compute pass options, such as memory barriers and synchronization
 
-                                } // The compute pass ends here
+            //                     } // The compute pass ends here
 
-                                // Submit the command encoder
-                                config.queue.submit(Some(encoder.finish()));
+            //                     // Submit the command encoder
+            //                     config.queue.submit(Some(encoder.finish()));
     }
     
     fn print_particle(i: usize, pos: &[f32], vel: &[f32], radii: &[f32], color: &[f32]) {
