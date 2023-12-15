@@ -101,6 +101,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     //     return vec4(1.0, 1.0, 1.0, 1.0);
     // }
     var color = vec4(in.color, 1.0);
+    if settings.colors == 0 {
+        color = vec4(0.05, 0.05, 0.05, 1.0);
+    }
     let len = length(in.position);
     if settings.circular_particles == 1 {
         if len > 0.5 {
@@ -123,7 +126,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if settings.circular_particles == 1 {
         let border_width = 0.08;
         if len > 0.5-border_width && len < 0.5 {
-            color = vec4(in.color.rgb*0.5, color.a);
+            if settings.colors == 0 { 
+                color = vec4(0.05, 0.05, 0.05, 1.0);
+            } else {
+                color = vec4(in.color.rgb*0.5, color.a);
+
+            }
         }
     }
     
@@ -137,13 +145,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     if settings.render_bonds == 1 && bond_info[in.id].x != -1 {
         for(var i = bond_info[in.id].x; i<bond_info[in.id].x+bond_info[in.id].y; i++){
-            let displacement = (bonds[i].length - length(pos_buf[in.id] - pos_buf[abs(bonds[i].index)])) * 255.0 * settings.stiffness;
-            let dir = normalize(pos_buf[abs(bonds[i].index)] - pos_buf[in.id]);
+            let displacement = (bonds[i].length - length(pos_buf[in.id] - pos_buf[abs(bonds[i].index)])) * 255.0;
+            var dir = normalize(pos_buf[abs(bonds[i].index)] - pos_buf[in.id]);
+            // if bonds[i].index < 0 {
+            //     dir = vec2(cos(bonds[in.id].angle + in.rot), sin(bonds[in.id].angle + in.rot));
+            // }
             if dot(dir, normalize(in.position)) > 0.99 {
 
-                color = vec4(1.0 - displacement, 1.0 + displacement, 1.0 - abs(displacement), 1.0);
+                color = vec4(1.0 - displacement, 1.0 + clamp(displacement*0.8, -0.8, 1.0) + 0.2*clamp(displacement, 0.0, 1.0), 1.0 - abs(displacement), 1.0);
                 if bonds[i].index < 0 {
-                    color = vec4(0.8, 0.0, 1.0, 1.0);
+                    color = vec4(1.0, 0.0, 0.0, 1.0);
                     // continue;
                 }
             }

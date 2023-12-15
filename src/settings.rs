@@ -231,7 +231,7 @@ impl Settings {
                             self.changed_collision_settings = true;
                         }
                         if self.gravity {
-                            if ui.add(egui::Slider::new(&mut self.gravity_acceleration, -100.0..=100.0).step_by(0.1).
+                            if ui.add(egui::Slider::new(&mut self.gravity_acceleration, -100.0..=1000.0).step_by(0.1).
                                 text("Acceleration")).changed() {
                                     println!("{}", self.gravity_acceleration);
                                     self.changed_collision_settings = true;
