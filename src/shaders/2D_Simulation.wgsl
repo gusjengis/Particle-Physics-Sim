@@ -57,8 +57,6 @@ struct Settings {
 @group(3) @binding(3) var<storage, read_write> contact_pointers: array<i32>;
 @group(4) @binding(0) var<uniform> settings: Settings;
 
-// @group(5) @binding(0) var<storage, read_write> col_sec: array<i32>;
-
 const deltaTime: f32 = 0.0000390625;
 const PI = 3.141592653589793238;
 
@@ -67,40 +65,36 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let id: u32 = global_id.x;
 
-    if fixity[id].x_vel == 0 {
-        acc[id] = vec3(vec2((velocities_buf[id] - velocities[id]).x, acc[id].y), acc[id].z);
-        velocities[id] = vec2(velocities_buf[id].x, velocities[id].y);
-    } else {
-        acc[id] = vec3(vec2(0.0, acc[id].y), acc[id].z);
-    }
-
-    if fixity[id].y_vel == 0 {
-        acc[id] = vec3(vec2(acc[id].x, (velocities_buf[id] - velocities[id]).y), acc[id].z);
-        velocities[id] = vec2(velocities[id].x, velocities_buf[id].y);
-    } else {
-        acc[id] = vec3(vec2(acc[id].x, 0.0), acc[id].z);
-    }
-
-    // if id == 1u {
-    //     velocities[id].x -= 0.5*deltaTime;
+    // if fixity[id].x_vel == 0 {
+    //     acc[id] = vec3(vec2((velocities_buf[id] - velocities[id]).x, acc[id].y), acc[id].z);
+    //     velocities[id] = vec2(velocities_buf[id].x, velocities[id].y);
+    // } else {
+    //     acc[id] = vec3(vec2(0.0, acc[id].y), acc[id].z);
     // }
 
-    velocities[id] += vec2(forces[id].x, forces[id].y)*deltaTime;
+    // if fixity[id].y_vel == 0 {
+    //     acc[id] = vec3(vec2(acc[id].x, (velocities_buf[id] - velocities[id]).y), acc[id].z);
+    //     velocities[id] = vec2(velocities[id].x, velocities_buf[id].y);
+    // } else {
+    //     acc[id] = vec3(vec2(acc[id].x, 0.0), acc[id].z);
+    // }
 
-    positions[id] = positions[id] + velocities[id] * deltaTime;
+    // velocities[id] += vec2(forces[id].x, forces[id].y)*deltaTime;
 
-    if fixity[id].rot_vel == 0 {
-        acc[id] = vec3(acc[id].xy, rot_vel_buf[id] - rot_vel[id]/deltaTime);
-        rot_vel[id] = rot_vel_buf[id];//clamp(rot_vel_buf[id],  -1000000.0, 1000000.0);//
-    }
+    // positions[id] = positions[id] + velocities[id] * deltaTime;
 
-    rot_vel[id] += forces[id].rot*deltaTime;
-    rot_vel_buf[id] = rot_vel[id];
-    rot[id] = (rot[id] + rot_vel[id] * deltaTime)%(2.0*PI);
+    // if fixity[id].rot_vel == 0 {
+    //     acc[id] = vec3(acc[id].xy, rot_vel_buf[id] - rot_vel[id]/deltaTime);
+    //     rot_vel[id] = rot_vel_buf[id];
+    // }
 
-    forces[id].x += forces[id].delX*deltaTime;
-    forces[id].y += forces[id].delY*deltaTime;
-    forces[id].rot += forces[id].delRot*deltaTime;
+    // rot_vel[id] += forces[id].rot*deltaTime;
+    // rot_vel_buf[id] = rot_vel[id];
+    // rot[id] = (rot[id] + rot_vel[id] * deltaTime)%(2.0*PI);
+
+    // forces[id].x += forces[id].delX*deltaTime;
+    // forces[id].y += forces[id].delY*deltaTime;
+    // forces[id].rot += forces[id].delRot*deltaTime;
 
     let stiffness = 10.0;
     let shear_stiffness = 0.25; // unit = Force/Unit Length

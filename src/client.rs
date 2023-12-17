@@ -464,6 +464,9 @@ impl Client {
         ));   
 
         if self.toggle {
+            if self.wgpu_config.prog_settings.changed_collision_settings {
+                self.wgpu_prog.shader_prog.collision_settings.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(&self.wgpu_config.prog_settings.collison_settings()));
+            }
             for i in 0..self.wgpu_config.prog_settings.genPerFrame {
                 self.wgpu_prog.shader_prog.compute(&mut self.wgpu_config);
                 self.generation += 1;

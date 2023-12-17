@@ -50,7 +50,7 @@ impl Settings {
     pub fn new() -> Self {
         let genPerFrame = 1;
         let particles = 256;
-        let workgroup_size = 1;
+        let workgroup_size = 256;
         let workgroups = particles/workgroup_size;
         //particle settings
         let max_radius = 0.1/3.2;
@@ -63,12 +63,12 @@ impl Settings {
         let min_h_velocity = 0.0;
         let max_v_velocity = 0.0;
         let min_v_velocity = 0.0;
-        let structure = Structure::Exp2;
+        let structure = Structure::Grid;
         let grid_width = 32.0;
         let settings_menu = false;
         let maintain_ar = true;
-        let hor_bound = 3.0;
-        let vert_bound = 2.0;
+        let hor_bound = 1.333;
+        let vert_bound = 1.0;
         let gravity = true;
         let gravity_acceleration = 9.8;
         let bonds = true;
@@ -221,7 +221,7 @@ impl Settings {
                 });
                 
                 egui::CollapsingHeader::new("Runtime").default_open(true).show(ui, |ui| {
-                    if ui.add(egui::Slider::new(&mut self.genPerFrame, 1..=214).
+                    if ui.add(egui::Slider::new(&mut self.genPerFrame, 1..=213).
                         logarithmic(true).
                         text("Gen/Frame")).changed() {
                             self.workgroups = self.particles/self.workgroup_size;
@@ -241,7 +241,7 @@ impl Settings {
                             self.changed_collision_settings = true;
                         }
                         if self.bonds {
-                            if ui.add(egui::Slider::new(&mut self.stiffness, 0.0..=10.0).step_by(0.01).
+                            if ui.add(egui::Slider::new(&mut self.stiffness, 0.01..=10.0).step_by(0.01).
                             text("Stiffness")).changed() {
                                         self.changed_collision_settings = true;
                                     };

@@ -7,16 +7,11 @@ use crate::settings::{*, self};
 pub fn p_count(settings: &mut Settings) -> usize {
     match settings.structure {
         settings::Structure::Grid => {
-            settings.workgroup_size = 256;
-            settings.particles = settings.workgroup_size * settings.workgroups;
             return settings.particles
         },
         settings::Structure::Random => {return settings.particles},
         _ => {
-            settings.workgroup_size = 2;
-            settings.workgroups = 1;    
-            settings.particles = settings.workgroup_size * settings.workgroups;
-            return settings.particles;
+            return 2;
         }
     }
 }
