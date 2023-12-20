@@ -1,6 +1,6 @@
 use crate::wgpu_prog::WGPUComputeProg;
 use crate::wgpu_structs::DepthBuffer;
-use crate::windowInit;
+use crate::window_init;
 use crate::wgpu_config::*;
 use crate::wgpu_prog;
 
@@ -23,7 +23,7 @@ use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use chrono::prelude::*;
 
 pub struct Client {
-    pub canvas: windowInit::Canvas,
+    pub canvas: window_init::Canvas,
     wgpu_config: WGPUConfig,
     wgpu_prog: WGPUProg,
     last_draw: chrono::DateTime<Local>,
@@ -63,7 +63,7 @@ impl Client {
             .unwrap();
         window.set_title("DEM Physics");
 
-        let canvas = windowInit::Canvas::new(window);
+        let canvas = window_init::Canvas::new(window);
         let mut wgpu_config = WGPUConfig::new(&canvas).await;
         let last_draw = Local::now();
         let log_framerate = false;

@@ -1,4 +1,4 @@
-use crate::windowInit;
+use crate::window_init;
 use crate::settings;
 use crate::wgpu_structs::*;
 use wgpu::util::DeviceExt;
@@ -24,7 +24,7 @@ pub struct WGPUConfig {
 impl WGPUConfig {
     // Creating some of the wgpu types requires async code
     
-    pub async fn new(canvas: &windowInit::Canvas) -> Self {
+    pub async fn new(canvas: &window_init::Canvas) -> Self {
         
         let size = canvas.size;
 

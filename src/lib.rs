@@ -1,5 +1,5 @@
 #![allow(warnings)]
-pub mod windowInit;
+pub mod window_init;
 pub mod client;
 pub mod wgpu_config;
 pub mod wgpu_structs;
