@@ -6,19 +6,8 @@ pub mod wgpu_prog;
 pub mod settings;
 pub mod setup;
 
-
-// use std::Timer;
-
-
 pub  fn main(){
     env_logger::init();
     let mut client = async_std::task::block_on(client::Client::new());
-
     client.resize(client.canvas.size);
-
-    // while(true){
-        
-        
-        
-    // }
 }

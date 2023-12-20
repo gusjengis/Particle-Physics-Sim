@@ -22,8 +22,6 @@ pub const VERTICES: &[Vertex] = &[
     Vertex { position: [-1.0, 1.0, 0.0] }, // 3 - Top Left
 ];
 
-// 1, 2, 0,
-// 0, 2, 3,
 pub const INDICES: &[u16] = &[
     0, 3, 2,
     0, 2, 1

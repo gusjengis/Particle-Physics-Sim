@@ -1,5 +1,3 @@
-// Vertex shader
-
 struct VertexIn {
     @location(0) position: vec2<f32>,
 };
@@ -21,10 +19,9 @@ struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) position: vec2<f32>,
     @location(1) color: vec3<f32>,
-    @location(2) radius: f32,
-    @location(3) rot: f32,
-    @location(4) rot_vel: f32,
-    @location(5) id: u32
+    @location(2) rot: f32,
+    @location(3) rot_vel: f32,
+    @location(4) id: u32
 };
 
 struct Settings {
@@ -85,7 +82,6 @@ fn vs_main(
     out.clip_position = vec4(xy*radii_buf[instance] + center + off, 0.0, 1.0);
     out.position = in.position;
     out.color = color_buf[instance % u32(settings.colors)];
-    out.radius = radii_buf[instance];
     out.rot = rot_buf[instance];
     out.rot_vel = rot_vel[instance];
     out.id = instance;
@@ -96,33 +92,29 @@ const PI = 3.141592653589793238;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    // cut out corners to make circle
-    // if (in.clip_position.x > settings.w || in.clip_position.x < -settings.w || in.clip_position.y > settings.h || in.clip_position.y < -settings.h) {
-    //     return vec4(1.0, 1.0, 1.0, 1.0);
-    // }
-    var color = vec4(in.color, 1.0);
-    if settings.colors == 0 {
-        color = vec4(0.05, 0.05, 0.05, 1.0);
-    }
+    // discard corners to make circle
     let len = length(in.position);
     if settings.circular_particles == 1 {
         if len > 0.5 {
             discard;
         }
     }
+
+    var color = vec4(in.color, 1.0);
+    if settings.colors == 0 {
+        color = vec4(0.05, 0.05, 0.05, 1.0);
+    }
     
-    // add border/outline
+    // cut out wedge for rotation
     let rot_point = vec2(cos(in.rot), sin(in.rot));
-    
     let rot_dot = dot(rot_point, normalize(in.position));
     if settings.render_rot == 1 {
-        var rot_dimmer = 0.0;
-        if (rot_dot < 0.9 && settings.render_rot == 1) || settings.render_rot == 0 {
-            rot_dimmer = 1.0;
+        if rot_dot > 0.9 {
+            color = vec4(0.0, 0.0, 0.0, 1.0);
         }
-        color = vec4(color.rgb*rot_dimmer, 1.0);
     }
 
+    // add border/outline
     if settings.circular_particles == 1 {
         let border_width = 0.08;
         if len > 0.5-border_width && len < 0.5 {
@@ -130,11 +122,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
                 color = vec4(0.05, 0.05, 0.05, 1.0);
             } else {
                 color = vec4(in.color.rgb*0.5, color.a);
-
             }
         }
     }
     
+    // color code based on direction of rotation
     if settings.color_code_rot == 1 {
         if in.rot_vel > 0.0 {
             color = vec4(0.0, color.g, color.ba);
@@ -143,19 +135,15 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         }
     }
 
+    // bonds
     if settings.render_bonds == 1 && bond_info[in.id].x != -1 {
         for(var i = bond_info[in.id].x; i<bond_info[in.id].x+bond_info[in.id].y; i++){
             let displacement = (bonds[i].length - length(pos_buf[in.id] - pos_buf[abs(bonds[i].index)])) * 255.0;
             var dir = normalize(pos_buf[abs(bonds[i].index)] - pos_buf[in.id]);
-            // if bonds[i].index < 0 {
-            //     dir = vec2(cos(bonds[in.id].angle + in.rot), sin(bonds[in.id].angle + in.rot));
-            // }
             if dot(dir, normalize(in.position)) > 0.99 {
-
                 color = vec4(1.0 - displacement, 1.0 + clamp(displacement*0.8, -0.8, 1.0) + 0.2*clamp(displacement, 0.0, 1.0), 1.0 - abs(displacement), 1.0);
                 if bonds[i].index < 0 {
                     color = vec4(1.0, 0.0, 0.0, 1.0);
-                    // continue;
                 }
             }
         }
