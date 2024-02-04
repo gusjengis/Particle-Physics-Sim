@@ -298,6 +298,19 @@ impl WGPUProg {
             module: &self.shader_prog.click_compute_shader,
             entry_point: "main",
         });
+
+        let selectangle_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Collision compute"),
+            bind_group_layouts: &[&self.shader_prog.selectangle_input.bind_group_layout, &self.shader_prog.selections.bind_group_layout, &self.shader_prog.hit_tex.bind_group_layout],
+            push_constant_ranges: &[]
+        });
+
+        self.shader_prog.selectangle_compute_pipeline = config.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: None,
+            layout: Some(&selectangle_compute_pipeline_layout),
+            module: &self.shader_prog.click_compute_shader,
+            entry_point: "main",
+        });
     }
 }
 
@@ -309,6 +322,7 @@ pub struct WGPUComputeProg {
     pub contact_buffers: BufferGroup,
     pub collision_settings: Uniform,
     pub click_input: Uniform,
+    pub click_buffer: BufferUniform,
     pub selectangle_input: Uniform,
     pub release_input: Uniform,
     pub drag_input: Uniform,
@@ -346,6 +360,7 @@ impl WGPUComputeProg {
         let mut contacts = vec![bytemuck::cast::<i32, f32>(-1); 4*config.prog_settings.max_contacts*p_count];
         let mut contact_pointers = vec![-1; config.prog_settings.max_contacts*p_count];
         let mut material_pointers = vec![0; p_count];
+        let mut cilck_info = vec![0; 4];
         // config.prog_settings.materials = vec![
         //     1.0,
         //     1.0,
@@ -431,13 +446,15 @@ impl WGPUComputeProg {
             bytemuck::cast_slice(&contacts),
             bytemuck::cast_slice(&contact_pointers),
             bytemuck::cast_slice(&material_pointers),
-        ], "Contact Buffers".to_string() );
+            ], "Contact Buffers".to_string() );
         // let contact_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&contacts), "Contact Buffer".to_string(), 0);
         // let bond_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&bonds), "Bond Buffer".to_string(), 0);
         let bond_info_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&bond_info), "Bond Info Buffer".to_string(), 0);
         let material_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&config.prog_settings.materials), "Materials".to_string(), 0);
         let collision_settings = Uniform::new(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()), "Collision Settings".to_string(), 0);
-
+        
+        let click_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&cilck_info), "Color Buffer".to_string(), 0);
+        
         let click_input = Uniform::new(&config.device, bytemuck::cast_slice(&[0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32]), "Click Data".to_string(), 0);
         let selectangle_input = Uniform::new(&config.device, bytemuck::cast_slice(&[0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32]), "Selectangle Data".to_string(), 0);
         let release_input = Uniform::new(&config.device, bytemuck::cast_slice(&[0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32]), "Release Data".to_string(), 0);
@@ -459,11 +476,6 @@ impl WGPUComputeProg {
             source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/2D_Simulation.wgsl").into()),
         });
 
-        let click_compute_shader = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: None,
-            source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/Click.wgsl").into()),
-        });
-
         let selectangle_compute_shader = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/Selectangle.wgsl").into()),
@@ -477,6 +489,11 @@ impl WGPUComputeProg {
         let drag_compute_shader = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/Translate.wgsl").into()),
+        });
+
+        let click_compute_shader = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/Click.wgsl").into()),
         });
 
         //create pipeline layout
@@ -494,25 +511,25 @@ impl WGPUComputeProg {
         
         let drag_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Translate compute"),
-            bind_group_layouts: &[&drag_input.bind_group_layout, &selections.bind_group_layout, &pos_buffer.bind_group_layout, &mov_buffers.bind_group_layout],
-            push_constant_ranges: &[]
-        });
-
-        let click_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Click compute"),
-            bind_group_layouts: &[&click_input.bind_group_layout, &selections.bind_group_layout, &hit_tex.bind_group_layout],
+            bind_group_layouts: &[&drag_input.bind_group_layout, &selections.bind_group_layout, &pos_buffer.bind_group_layout, &mov_buffers.bind_group_layout, &hit_tex.bind_group_layout, &click_buffer.bind_group_layout],
             push_constant_ranges: &[]
         });
 
         let selectangle_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Selectangle compute"),
-            bind_group_layouts: &[&selectangle_input.bind_group_layout, &selections.bind_group_layout, &hit_tex.bind_group_layout],
+            bind_group_layouts: &[&selectangle_input.bind_group_layout, &selections.bind_group_layout, &hit_tex.bind_group_layout, &click_buffer.bind_group_layout],
+            push_constant_ranges: &[]
+        });
+
+        let click_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Selectangle compute"),
+            bind_group_layouts: &[&selectangle_input.bind_group_layout, &selections.bind_group_layout, &hit_tex.bind_group_layout, &click_buffer.bind_group_layout],
             push_constant_ranges: &[]
         });
 
         let release_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Release compute"),
-            bind_group_layouts: &[&release_input.bind_group_layout, &selections.bind_group_layout, &mov_buffers.bind_group_layout],
+            bind_group_layouts: &[&release_input.bind_group_layout, &selections.bind_group_layout, &mov_buffers.bind_group_layout, &click_buffer.bind_group_layout],
             push_constant_ranges: &[]
         });
 
@@ -569,6 +586,7 @@ impl WGPUComputeProg {
             contact_buffers,
             collision_settings,
             click_input,
+            click_buffer,
             selectangle_input,
             release_input,
             drag_input,
@@ -596,9 +614,10 @@ impl WGPUComputeProg {
 
             compute_pass.set_pipeline(&self.click_compute_pipeline);
             
-            compute_pass.set_bind_group(0, &self.click_input.bind_group, &[]);
+            compute_pass.set_bind_group(0, &self.selectangle_input.bind_group, &[]);
             compute_pass.set_bind_group(1, &self.selections.bind_group, &[]);   
             compute_pass.set_bind_group(2, &self.hit_tex.diffuse_bind_group, &[]);   
+            compute_pass.set_bind_group(3, &self.click_buffer.bind_group, &[]);   
 
             compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
             
@@ -620,6 +639,7 @@ impl WGPUComputeProg {
             compute_pass.set_bind_group(0, &self.selectangle_input.bind_group, &[]);
             compute_pass.set_bind_group(1, &self.selections.bind_group, &[]);   
             compute_pass.set_bind_group(2, &self.hit_tex.diffuse_bind_group, &[]);   
+            compute_pass.set_bind_group(3, &self.click_buffer.bind_group, &[]);   
 
             compute_pass.dispatch_workgroups(((dimensions.0*dimensions.1) as f32/256.0).ceil() as u32, 1, 1);
             
@@ -641,6 +661,7 @@ impl WGPUComputeProg {
             compute_pass.set_bind_group(0, &self.release_input.bind_group, &[]);
             compute_pass.set_bind_group(1, &self.selections.bind_group, &[]);   
             compute_pass.set_bind_group(2, &self.mov_buffers.bind_group, &[]);  
+            compute_pass.set_bind_group(3, &self.click_buffer.bind_group, &[]);   
 
             compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
             
@@ -663,6 +684,9 @@ impl WGPUComputeProg {
             compute_pass.set_bind_group(1, &self.selections.bind_group, &[]);   
             compute_pass.set_bind_group(2, &self.pos_buffer.bind_group, &[]);   
             compute_pass.set_bind_group(3, &self.mov_buffers.bind_group, &[]);   
+            compute_pass.set_bind_group(4, &self.hit_tex.diffuse_bind_group, &[]);   
+            compute_pass.set_bind_group(5, &self.click_buffer.bind_group, &[]);   
+
 
             compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
             

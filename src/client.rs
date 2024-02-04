@@ -36,6 +36,7 @@ pub struct Client {
     toggle: bool,
     prev_gen_time: DateTime<Local>,
     cursor_pos: (i32, i32),
+    click_pos: (i32, i32),
     cursor_delta: (i32, i32),
     minimized: bool,
     HL: bool,
@@ -80,6 +81,7 @@ impl Client {
         let toggle = false;
         let prev_gen_time = Local::now();
         let cursor_pos = (0, 0);
+        let click_pos = (0, 0);
         let cursor_delta = (0, 0);
         let minimized = false;
         let HL = false;
@@ -129,6 +131,7 @@ impl Client {
             toggle,
             prev_gen_time,
             cursor_pos,
+            click_pos,
             cursor_delta,
             minimized,
             HL,
@@ -227,6 +230,7 @@ impl Client {
     pub fn input(&mut self, event: &WindowEvent) -> bool {
         match event {
             WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. } => {
+                self.click_pos = self.cursor_pos;
                 self.middle = true;
                 if !self.shift {
 
@@ -286,11 +290,20 @@ impl Client {
                         &[
                             2.0*(self.canvas.size.width/self.canvas.size.height) as f32 * (delta.0) as f32/self.canvas.size.width as f32 / self.wgpu_config.prog_settings.scale,
                             -2.0 as f32 * (delta.1) as f32/self.canvas.size.height as f32 / self.wgpu_config.prog_settings.scale,
-                            0.0 as f32, 
-                            0.0 as f32
+                            bytemuck::cast::<_, f32>(self.cursor_pos.0),
+                            bytemuck::cast::<_, f32>(self.cursor_pos.1),
                         ]
                     ));
                     self.wgpu_prog.shader_prog.drag(&mut self.wgpu_config);
+                    self.wgpu_prog.shader_prog.selectangle_input.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
+                        &[
+                            bytemuck::cast::<_, f32>(self.click_pos.0),
+                            bytemuck::cast::<_, f32>(self.click_pos.1),
+                            bytemuck::cast::<_, f32>(self.cursor_pos.0 - self.click_pos.0),
+                            bytemuck::cast::<_, f32>(self.cursor_pos.1 - self.click_pos.1),
+                        ]
+                    ));
+                    self.wgpu_prog.shader_prog.selectangle(&mut self.wgpu_config, (self.canvas.size.width, self.canvas.size.height));
                 }
                 return true;
             },
