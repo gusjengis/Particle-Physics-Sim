@@ -9,6 +9,9 @@ pub fn p_count(settings: &mut Settings) -> usize {
         settings::Structure::Grid => {
             return settings.particles
         },
+        settings::Structure::Mats => {
+            return 4
+        },
         settings::Structure::Random => {return settings.particles},
         _ => {
             return 2;
@@ -17,8 +20,25 @@ pub fn p_count(settings: &mut Settings) -> usize {
 }
 
 
-pub fn grid(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
+pub fn grid(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
     settings.two_part = false;
+
+    settings.materials.resize(settings.material_size*2, 0.0);
+
+    // settings.materials[0] = 1.0; // Red
+    // settings.materials[1] = 0.0; // Green
+    // settings.materials[2] = 0.0; // Blue
+    // settings.materials[3] = 1.0; // Density
+    // settings.materials[4] = 10.0; // Normal Stiffness
+    // settings.materials[5] = 0.25; // Shear Stiffness
+
+    // // settings.materials[6] = 0.0; // Red
+    // // settings.materials[7] = 0.0; // Green
+    // // settings.materials[8] = 1.0; // Blue
+    // settings.materials[9] = 1.0; // Density
+    // settings.materials[10] = 10.0; // Normal Stiffness
+    // settings.materials[11] = 0.25; // Shear Stiffness
+    
     // settings.hor_bound = 3.0;    
     // settings.vert_bound = 2.0;
     // settings.scale = 0.5;
@@ -47,11 +67,13 @@ pub fn grid(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
 
         if min_h_vel < max_h_vel { vel[i*2] = rng.gen_range(min_h_vel..max_h_vel); } else { vel[i*2] = min_h_vel; }
         if min_v_vel < max_v_vel { vel[i*2+1] = rng.gen_range(min_v_vel..max_v_vel); } else { vel[i*2+1] = min_v_vel; }
-
+        // if rng.gen_range(0.0..=1.0) > 0.999 {
+        //     material_pointers[i] = 1;
+        // }
     }
     for i in 0..radii.len() as usize {
         if settings.variable_rad && min_rad < max_rad {
-            radii[i] = rng.gen_range(min_rad..max_rad);
+            radii[i] = rng.gen_range(min_rad..max_rad);//*(material_pointers[i] as f32*25.0 + 1.0);
         } else {
             radii[i] = max_rad;
         }
@@ -146,79 +168,38 @@ pub fn grid(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
 }
 
 // Two-Particle Experiments
-pub fn exp1(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>) -> (Vec<i32>, Vec<i32>){
-    // settings.colors = 1;
-    // settings.gravity = false;
-    // // settings.hor_bound = 2.666;    
-    // // settings.vert_bound = 2.0;
-    // // settings.scale = 0.5;
-    // settings.render_rot = true;
-    // settings.color_code_rot = true;
-    // settings.two_part = true;
-    // //            A                  B
-    // pos[0]     = -0.5; pos[2]     =  0.5; // X
-    // pos[1]     =  0.0; pos[3]     =  0.0; // Y
-    // rot[0]     =  0.0; rot[1]     =  0.0; // Angle
-    // vel[0]     =  0.0; vel[2]     = -1.0; // X Velocity
-    // vel[1]     =  0.0; vel[3]     =  0.0; // Y Velocity
-    // rot_vel[0] =  -2500.0; rot_vel[1] =  0.0; // Angular Velocity
-    // radii[0]   =  0.01; radii[1]   =  0.01; // Radius
-
-    // //Fixity
-    // //          A              B
-    // fixity[0] = 1; fixity[3] = 0; // X-Velocity
-    // fixity[1] = 1; fixity[4] = 0; // Y-Velocity
-    // fixity[2] = 1; fixity[5] = 0; // Angular-Velocity
-    
-    // //Forces
-    // //            A                  B
-    // forces[0] =  0.0; forces[6]  =  0.0; // X-Force
-    // forces[1] =  0.0; forces[7]  =  0.0; // Y-Force
-    // forces[2] =  0.0; forces[8]  =  0.0; // Moment
-    // forces[3] =  0.0; forces[9]  =  0.0; // X-Force Vel
-    // forces[4] =  0.0; forces[10] =  0.0; // Y-Force Vel
-    // forces[5] =  0.0; forces[11] =  0.0; // Moment Vel
-
-    // return (vec![-1; 2*2], vec![-1; 2*settings.max_bonds]);
+pub fn exp1(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
     settings.colors = 1;
-    let mut rng = rand::thread_rng();
-
-    settings.gravity = false;
-    // settings.hor_bound = 3.0;    
+    settings.gravity = true;
+    settings.friction = true;
+    // settings.bonds = 2;
+    // settings.hor_bound = 2.666;    
     // settings.vert_bound = 2.0;
     // settings.scale = 0.5;
     settings.render_rot = true;
-    settings.color_code_rot = true;
-    settings.two_part = true;
+    settings.color_code_rot = false;
+    // settings.two_part = true;
     //            A                  B
-    pos[0]     = -0.5; pos[2]     =  0.5; // X
+    pos[0]     = -0.199; pos[2]     =  0.2; // X
     pos[1]     =  0.0; pos[3]     =  0.0; // Y
     rot[0]     =  0.0; rot[1]     =  0.0; // Angle
-    vel[0]     =  0.0; vel[2]     =  -5.0; // X Velocity //rng.gen_range(1.0..10.0)
-    vel[1]     =  0.0; vel[3]     =  0.0; // Y Velocity
-    rot_vel[0] =  100.0; rot_vel[1] = 0.0; // Angular Velocity
+    vel[0]     =  0.0; vel[2]     =  0.0; // X Velocity
+    vel[1]     = -0.2; vel[3]     =  0.2; // Y Velocity
+    rot_vel[0] =  0.0; rot_vel[1] =  0.0; // Angular Velocity
     radii[0]   =  0.2; radii[1]   =  0.2; // Radius
 
-    //Fixity
-    //          A              B
-    fixity[0] = 1; fixity[3] = 0; // X-Velocity
-    fixity[1] = 1; fixity[4] = 0; // Y-Velocity
-    fixity[2] = 1; fixity[5] = 0; // Angular-Velocity
 
-    //Forces
-    //            A                  B
-    forces[0] =  0.0; forces[6]  =  0.0; // X-Force
-    forces[1] =  0.0; forces[7]  =  0.0; // Y-Force
-    forces[2] =  0.0; forces[8]  =  0.0; // Moment
-    forces[3] =  0.0; forces[9]  =  0.0; // X-Force Vel
-    forces[4] =  0.0; forces[10] =  0.0; // Y-Force Vel
-    forces[5] =  0.0; forces[11] =  0.0; // Moment Vel
-
-    return (vec![-1; 2*2], vec![-1; 2*settings.max_bonds]);
-
+    let delta = (pos[2] - pos[0], pos[3] - pos[1]);
+    let magnitude = (delta.0*delta.0 + delta.1*delta.1).powf(0.5);
+    let normalized_delta = (delta.0/magnitude, delta.1/magnitude);
+    let angle = normalized_delta.0.atan2(normalized_delta.1);
+    return (vec![1, (angle).to_bits() as i32, (magnitude).to_bits() as i32,
+                 0, (angle+PI).to_bits() as i32, (magnitude).to_bits() as i32], // bonds
+            vec![0, 1, 
+                 1, 1]); // bond_info
 }
 
-pub fn exp2(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>) -> (Vec<i32>, Vec<i32>){
+pub fn exp2(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
     settings.colors = 1;
     let mut rng = rand::thread_rng();
 
@@ -257,7 +238,7 @@ pub fn exp2(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
 
 }
 
-pub fn exp3(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>) -> (Vec<i32>, Vec<i32>){
+pub fn exp3(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
     settings.colors = 1;
     settings.gravity = false;
     // settings.hor_bound = 1.5;    
@@ -294,7 +275,7 @@ pub fn exp3(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
 
 }
 
-pub fn exp4(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>) -> (Vec<i32>, Vec<i32>){
+pub fn exp4(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
     settings.colors = 1;
     settings.gravity = false;
     // settings.hor_bound = 1.5;    
@@ -331,7 +312,7 @@ pub fn exp4(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
 
 }
 
-pub fn exp5(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>) -> (Vec<i32>, Vec<i32>){
+pub fn exp5(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
     settings.colors = 1;
     settings.gravity = false;
     // settings.hor_bound = 2.666;    
@@ -368,7 +349,7 @@ pub fn exp5(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
 
 }
 
-pub fn exp6(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>) -> (Vec<i32>, Vec<i32>){
+pub fn exp6(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
     settings.colors = 1;
     settings.gravity = false;
     settings.linear_contact_bonds = false;
@@ -402,6 +383,63 @@ pub fn exp6(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
     forces[3] =  0.0; forces[9]  =  0.0; // X-Force Vel
     forces[4] =  0.0; forces[10] =  0.0; // Y-Force Vel
     forces[5] =  0.0; forces[11] =  0.0; // Moment Vel
+
+    let delta = (pos[2] - pos[0], pos[3] - pos[1]);
+    let magnitude = (delta.0*delta.0 + delta.1*delta.1).powf(0.5);
+    let normalized_delta = (delta.0/magnitude, delta.1/magnitude);
+    let angle = normalized_delta.0.atan2(normalized_delta.1);
+    return (vec![-1; 2*2], vec![-1; 2*settings.max_bonds]);
+}
+
+pub fn mats(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
+    settings.colors = 1;
+    settings.gravity = true;
+    settings.friction = true;
+    // settings.bonds = false;
+    // settings.hor_bound = 2.666;    
+    // settings.vert_bound = 2.0;
+    // settings.scale = 0.5;
+    settings.render_rot = true;
+    settings.color_code_rot = false;
+    // settings.two_part = true;
+    //            A                  B
+    pos[0]     = -0.5; pos[2]     =  0.5; // X
+    pos[1]     =  0.0; pos[3]     =  0.0; // Y
+    rot[0]     =  0.0; rot[1]     =  0.0; // Angle
+    vel[0]     =  10.0; vel[2]     = -10.0; // X Velocity
+    vel[1]     =  0.0; vel[3]     =  0.0; // Y Velocity
+    rot_vel[0] =  0.0; rot_vel[1] =  0.0; // Angular Velocity
+    radii[0]   =  0.2; radii[1]   =  0.2; // Radius
+
+    //            A                  B
+    pos[4+0]     = -0.5; pos[4+2]     =  0.5; // X
+    pos[4+1]     = -0.5; pos[4+3]     =  0.5; // Y
+    rot[2+0]     =  0.0; rot[2+1]     =  0.0; // Angle
+    vel[4+0]     =  10.0; vel[4+2]     = -10.0; // X Velocity
+    vel[4+1]     =  0.0; vel[4+3]     =  0.0; // Y Velocity
+    rot_vel[2+0] =  0.0; rot_vel[2+1] =  0.0; // Angular Velocity
+    radii[2+0]   =  0.2; radii[2+1]   =  0.2; // Radius
+
+    settings.materials.resize(settings.material_size*2, 0.0);
+
+    settings.materials[0] = 1.0; // Red
+    settings.materials[1] = 0.0; // Green
+    settings.materials[2] = 0.0; // Blue
+    settings.materials[3] = 1.0; // Density
+    settings.materials[4] = 10.0; // Normal Stiffness
+    settings.materials[5] = 0.25; // Shear Stiffness
+
+    settings.materials[6] = 0.0; // Red
+    settings.materials[7] = 0.0; // Green
+    settings.materials[8] = 1.0; // Blue
+    settings.materials[9] = 1.0; // Density
+    settings.materials[10] = 10.0; // Normal Stiffness
+    settings.materials[11] = 0.25; // Shear Stiffness
+
+    material_pointers[0] = 0;
+    material_pointers[1] = 1;
+    material_pointers[2] = 0;
+    material_pointers[3] = 1;
 
     let delta = (pos[2] - pos[0], pos[3] - pos[1]);
     let magnitude = (delta.0*delta.0 + delta.1*delta.1).powf(0.5);

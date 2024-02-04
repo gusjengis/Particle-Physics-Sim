@@ -149,10 +149,6 @@ impl WGPUConfig {
             surface_format
         }
     }
-
-    
-
-    
 }
 
 

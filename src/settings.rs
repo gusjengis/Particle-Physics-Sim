@@ -27,7 +27,8 @@ pub struct Settings {
     pub vert_bound: f32,
     pub gravity: bool,
     pub gravity_acceleration: f32,
-    pub bonds: bool,
+    pub bonds: i32,
+    pub bondenum: BondType,
     pub bond_tearing: bool,
     pub bond_force_limit: f32,
     pub stiffness: f32,
@@ -42,8 +43,13 @@ pub struct Settings {
     pub render_rot: bool,
     pub color_code_rot: bool,
     pub colors: i32,
+    pub random_colors: bool,
     pub render_bonds: bool,
-    pub two_part: bool
+    pub two_part: bool,
+    pub materials: Vec<f32>,
+    pub material_size: usize,
+    pub materials_menu: bool,
+    pub materials_changed: bool
 }
 
 impl Settings {
@@ -63,15 +69,16 @@ impl Settings {
         let min_h_velocity = 0.0;
         let max_v_velocity = 0.0;
         let min_v_velocity = 0.0;
-        let structure = Structure::Grid;
+        let structure = Structure::Exp1;
         let grid_width = 32.0;
         let settings_menu = false;
         let maintain_ar = true;
         let hor_bound = 1.333;
         let vert_bound = 1.0;
         let gravity = true;
-        let gravity_acceleration = 9.8;
-        let bonds = true;
+        let gravity_acceleration = 1.0;
+        let bonds = 0;
+        let bondenum = BondType::Unbonded;
         let bond_tearing = false;
         let bond_force_limit = 0.5;
         let stiffness = 0.1;
@@ -86,8 +93,20 @@ impl Settings {
         let render_rot = false;
         let color_code_rot = false;
         let colors = 32;
+        let random_colors = false;
         let render_bonds = true;
         let two_part = false;
+        let materials = vec![
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            10.0,
+            0.25
+        ];
+        let material_size = 6;
+        let materials_menu = false;
+        let materials_changed = false; 
         Self {
             genPerFrame,
             particles,
@@ -112,6 +131,7 @@ impl Settings {
             gravity,
             gravity_acceleration,
             bonds,
+            bondenum,
             bond_tearing,
             bond_force_limit,
             stiffness,
@@ -126,8 +146,13 @@ impl Settings {
             render_rot,
             color_code_rot,
             colors,
+            random_colors,
             render_bonds,
-            two_part
+            two_part,
+            materials,
+            material_size,
+            materials_menu,
+            materials_changed
         }
     }
 
@@ -138,7 +163,7 @@ impl Settings {
                 // ui.add(egui::Hyperlink::from_label_and_url("This Repo!", "https://github.com/gusjengis/DEM"));
                 // ui.heading("Settings");
                 egui::CollapsingHeader::new("Setup").show(ui, |ui| {
-                    if !self.two_part { if ui.add(egui::Slider::new(&mut self.particles, self.workgroup_size..=self.workgroup_size*100).
+                    if !self.two_part { if ui.add(egui::Slider::new(&mut self.particles, self.workgroup_size..=self.workgroup_size*200).
                     text("Particles").
                     step_by(self.workgroup_size as f64)).changed() {
                         self.workgroups = self.particles/self.workgroup_size;
@@ -156,6 +181,7 @@ impl Settings {
                             reset = reset || ui.selectable_value(&mut self.structure, Structure::Exp4, "Experiment 4").changed();
                             reset = reset || ui.selectable_value(&mut self.structure, Structure::Exp5, "Experiment 5").changed();
                             reset = reset || ui.selectable_value(&mut self.structure, Structure::Exp6, "Experiment 6").changed();
+                            reset = reset || ui.selectable_value(&mut self.structure, Structure::Mats, "Mats").changed();
                         });
                     if !self.two_part { if self.structure == Structure::Grid {
                         if ui.add(egui::Slider::new(&mut self.grid_width, 1.0..=self.particles as f32).
@@ -231,16 +257,34 @@ impl Settings {
                             self.changed_collision_settings = true;
                         }
                         if self.gravity {
-                            if ui.add(egui::Slider::new(&mut self.gravity_acceleration, -100.0..=1000.0).step_by(0.1).
-                                text("Acceleration")).changed() {
-                                    println!("{}", self.gravity_acceleration);
+                            if ui.add(egui::Slider::new(&mut self.gravity_acceleration, -100.0..=100.0).step_by(0.1).
+                                text("G Force")).changed() {
+                                    // println!("{}", self.gravity_acceleration);
                                     self.changed_collision_settings = true;
                                 };
                         }
-                        if ui.checkbox(&mut self.bonds, "Bonds").changed() {
+                        let mut changed_bonds = false;
+                        egui::ComboBox::from_label("Bonds")
+                        .selected_text(format!("{:?}", self.bondenum))
+                        .show_ui(ui, |ui| {
+                            changed_bonds = changed_bonds || ui.selectable_value(&mut self.bondenum, BondType::Unbonded, "Unbonded").changed();
+                            changed_bonds = changed_bonds || ui.selectable_value(&mut self.bondenum, BondType::Normal_Bonds, "Normal Bonds").changed();
+                            changed_bonds = changed_bonds || ui.selectable_value(&mut self.bondenum, BondType::Linear_Contact_Bond, "Linear Contact Bonds").changed();
+                            changed_bonds = changed_bonds || ui.selectable_value(&mut self.bondenum, BondType::Parallel_Linear_Contact_Bond, "Parallel Linear Contact Bonds").changed();
+                        });
+                        if changed_bonds { 
                             self.changed_collision_settings = true;
+                            self.bonds = match self.bondenum {
+                                BondType::Unbonded => { 0 },
+                                BondType::Normal_Bonds => { 1 },
+                                BondType::Linear_Contact_Bond => { 2 },
+                                BondType::Parallel_Linear_Contact_Bond => { 3 },
+                            }
                         }
-                        if self.bonds {
+                        // if ui.checkbox(&mut self.bonds, "Bonds").changed() {
+                        //     self.changed_collision_settings = true;
+                        // }
+                        if self.bonds != 0 {
                             if ui.add(egui::Slider::new(&mut self.stiffness, 0.01..=10.0).step_by(0.01).
                             text("Stiffness")).changed() {
                                         self.changed_collision_settings = true;
@@ -282,14 +326,14 @@ impl Settings {
                     egui::CollapsingHeader::new("Walls").default_open(false).show(ui, |ui| {
                         ui.checkbox(&mut self.maintain_ar, "Maintain Aspect Ratio");
                         let ar = self.hor_bound/self.vert_bound;
-                        if ui.add(egui::Slider::new(&mut self.hor_bound, 0.0..=16.0).
+                        if ui.add(egui::Slider::new(&mut self.hor_bound, 0.0..=64.0).
                             text("Width")).changed() {
                                 self.changed_collision_settings = true;
                                 if self.maintain_ar {
                                     self.vert_bound = self.hor_bound*1.0/ar;
                                 }
                             };
-                        if ui.add(egui::Slider::new(&mut self.vert_bound, 0.0..=16.0).
+                        if ui.add(egui::Slider::new(&mut self.vert_bound, 0.0..=64.0).
                             text("Height")).changed() {
                                 self.changed_collision_settings = true;
                                 if self.maintain_ar {
@@ -309,10 +353,26 @@ impl Settings {
                     ui.checkbox(&mut self.render_rot, "Render Rotation");
                     ui.checkbox(&mut self.color_code_rot, "Color Code Rotation");
                     ui.add(egui::Slider::new(&mut self.colors, 0..=(self.particles-1) as i32).text("Colors"));
+                    ui.checkbox(&mut self.random_colors, "Random Colors");
                     ui.checkbox(&mut self.render_bonds, "Render Bonds");
                     
                 });
+                ui.checkbox(&mut self.materials_menu, "Materials Menu");
             });
+            if self.materials_menu { egui::Window::new("Materials").collapsible(false).show(ctx, |ui| {
+                let materials_count = self.materials.len()/self.material_size;
+                for i in 0..materials_count {
+                    let mat_num = i+1;
+                    egui::CollapsingHeader::new(format!("Material {mat_num}")).show(ui, |ui| {
+                        if ui.add(egui::Slider::new(&mut self.materials[i*self.material_size + 0], 0.0..=1.0).text("Red")).changed() { self.materials_changed = true; };
+                        if ui.add(egui::Slider::new(&mut self.materials[i*self.material_size + 1], 0.0..=1.0).text("Green")).changed() { self.materials_changed = true; };
+                        if ui.add(egui::Slider::new(&mut self.materials[i*self.material_size + 2], 0.0..=1.0).text("Blue")).changed() { self.materials_changed = true; };
+                        if ui.add(egui::Slider::new(&mut self.materials[i*self.material_size + 3], 0.01..=100.0).text("Density")).changed() { self.materials_changed = true; };
+                        if ui.add(egui::Slider::new(&mut self.materials[i*self.material_size + 4], 0.01..=100.0).text("Normal Stiffness")).changed() { self.materials_changed = true; };
+                        if ui.add(egui::Slider::new(&mut self.materials[i*self.material_size + 5], 0.01..=100.0).text("Shear Stiffness")).changed() { self.materials_changed = true; };
+                    });
+                }
+            });}
         }
         return reset;   
     }
@@ -323,7 +383,7 @@ impl Settings {
             self.hor_bound,
             self.vert_bound,
             bytemuck::cast(self.gravity as i32),
-            bytemuck::cast(self.bonds as i32),
+            bytemuck::cast(self.bonds),
             bytemuck::cast(self.collisions as i32),
             bytemuck::cast(self.friction as i32),
             self.friction_coefficient,
@@ -343,10 +403,11 @@ impl Settings {
             self.render_rot as i32,
             self.color_code_rot as i32,
             self.colors,
-            (self.bonds && self.render_bonds) as i32,
+            (self.bonds != 0 && self.render_bonds) as i32,
             self.hor_bound.to_bits() as i32,
             self.vert_bound.to_bits() as i32,
             self.stiffness.to_bits() as i32,
+            self.random_colors as i32,
         ];
     }
 
@@ -371,7 +432,7 @@ impl Settings {
         self.hor_bound = 3.0;
         self.vert_bound = 2.0;
         self.gravity = true;
-        self.bonds = true;
+        // self.bonds = true;
         self.collisions = true;
         self.friction = true;
         self.rotation = true;
@@ -390,4 +451,13 @@ pub enum Structure {
     Exp4,
     Exp5,
     Exp6,
+    Mats
+}
+
+#[derive(Debug, PartialEq)]
+pub enum BondType {
+    Unbonded,
+    Normal_Bonds,
+    Linear_Contact_Bond,
+    Parallel_Linear_Contact_Bond,
 }
