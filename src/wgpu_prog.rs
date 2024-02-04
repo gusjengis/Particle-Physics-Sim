@@ -288,7 +288,7 @@ impl WGPUProg {
         
         let click_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Collision compute"),
-            bind_group_layouts: &[&self.shader_prog.click_input.bind_group_layout, &self.shader_prog.selections.bind_group_layout, &self.shader_prog.hit_tex.bind_group_layout],
+            bind_group_layouts: &[&self.shader_prog.click_input.bind_group_layout, &self.shader_prog.selections.bind_group_layout, &self.shader_prog.hit_tex.bind_group_layout, &self.shader_prog.click_buffer.bind_group_layout],
             push_constant_ranges: &[]
         });
 
@@ -301,7 +301,7 @@ impl WGPUProg {
 
         let selectangle_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Collision compute"),
-            bind_group_layouts: &[&self.shader_prog.selectangle_input.bind_group_layout, &self.shader_prog.selections.bind_group_layout, &self.shader_prog.hit_tex.bind_group_layout],
+            bind_group_layouts: &[&self.shader_prog.selectangle_input.bind_group_layout, &self.shader_prog.selections.bind_group_layout, &self.shader_prog.hit_tex.bind_group_layout, &self.shader_prog.click_buffer.bind_group_layout],
             push_constant_ranges: &[]
         });
 
@@ -486,15 +486,16 @@ impl WGPUComputeProg {
             source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/Release.wgsl").into()),
         });
 
+        let click_compute_shader = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/Click.wgsl").into()),
+        });
+
         let drag_compute_shader = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/Translate.wgsl").into()),
         });
 
-        let click_compute_shader = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: None,
-            source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/Click.wgsl").into()),
-        });
 
         //create pipeline layout
         let compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -511,7 +512,7 @@ impl WGPUComputeProg {
         
         let drag_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Translate compute"),
-            bind_group_layouts: &[&drag_input.bind_group_layout, &selections.bind_group_layout, &pos_buffer.bind_group_layout, &mov_buffers.bind_group_layout, &hit_tex.bind_group_layout, &click_buffer.bind_group_layout],
+            bind_group_layouts: &[&drag_input.bind_group_layout, &selections.bind_group_layout, &pos_buffer.bind_group_layout, &mov_buffers.bind_group_layout, &click_buffer.bind_group_layout],
             push_constant_ranges: &[]
         });
 
@@ -522,8 +523,8 @@ impl WGPUComputeProg {
         });
 
         let click_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Selectangle compute"),
-            bind_group_layouts: &[&selectangle_input.bind_group_layout, &selections.bind_group_layout, &hit_tex.bind_group_layout, &click_buffer.bind_group_layout],
+            label: Some("Click compute"),
+            bind_group_layouts: &[&click_input.bind_group_layout, &selections.bind_group_layout, &hit_tex.bind_group_layout, &click_buffer.bind_group_layout],
             push_constant_ranges: &[]
         });
 
@@ -614,7 +615,7 @@ impl WGPUComputeProg {
 
             compute_pass.set_pipeline(&self.click_compute_pipeline);
             
-            compute_pass.set_bind_group(0, &self.selectangle_input.bind_group, &[]);
+            compute_pass.set_bind_group(0, &self.click_input.bind_group, &[]);
             compute_pass.set_bind_group(1, &self.selections.bind_group, &[]);   
             compute_pass.set_bind_group(2, &self.hit_tex.diffuse_bind_group, &[]);   
             compute_pass.set_bind_group(3, &self.click_buffer.bind_group, &[]);   
@@ -683,9 +684,8 @@ impl WGPUComputeProg {
             compute_pass.set_bind_group(0, &self.drag_input.bind_group, &[]);
             compute_pass.set_bind_group(1, &self.selections.bind_group, &[]);   
             compute_pass.set_bind_group(2, &self.pos_buffer.bind_group, &[]);   
-            compute_pass.set_bind_group(3, &self.mov_buffers.bind_group, &[]);   
-            compute_pass.set_bind_group(4, &self.hit_tex.diffuse_bind_group, &[]);   
-            compute_pass.set_bind_group(5, &self.click_buffer.bind_group, &[]);   
+            compute_pass.set_bind_group(3, &self.mov_buffers.bind_group, &[]);     
+            compute_pass.set_bind_group(4, &self.click_buffer.bind_group, &[]);   
 
 
             compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);

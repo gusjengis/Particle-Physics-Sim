@@ -343,11 +343,11 @@ impl Settings {
                     });
 
                 });
-                ui.horizontal(|ui| {
-                    if ui.button("Reset Settings").clicked() {
-                        self.reset();
-                    }
-                });
+                // ui.horizontal(|ui| {
+                //     if ui.button("Reset Settings").clicked() {
+                //         self.reset();
+                //     }
+                // });
                 egui::CollapsingHeader::new("Rendering").default_open(false).show(ui, |ui| {
                     ui.checkbox(&mut self.circular_particles, "Circular Particles");
                     ui.checkbox(&mut self.render_rot, "Render Rotation");

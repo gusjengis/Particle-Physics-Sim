@@ -8,6 +8,7 @@ use crate::wgpu_prog;
 use crate::wgpu_prog::WGPUProg;
 use cgmath::Angle;
 use egui_demo_lib::DemoWindows;
+use winit::window::Fullscreen;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop, EventLoopProxy},
@@ -290,7 +291,7 @@ impl Client {
                         &[
                             2.0*(self.canvas.size.width/self.canvas.size.height) as f32 * (delta.0) as f32/self.canvas.size.width as f32 / self.wgpu_config.prog_settings.scale,
                             -2.0 as f32 * (delta.1) as f32/self.canvas.size.height as f32 / self.wgpu_config.prog_settings.scale,
-                            bytemuck::cast::<_, f32>(self.cursor_pos.0),
+                            self.canvas.size.width as f32 / self.canvas.size.height as f32,
                             bytemuck::cast::<_, f32>(self.cursor_pos.1),
                         ]
                     ));
@@ -299,8 +300,8 @@ impl Client {
                         &[
                             bytemuck::cast::<_, f32>(self.click_pos.0),
                             bytemuck::cast::<_, f32>(self.click_pos.1),
-                            bytemuck::cast::<_, f32>(self.cursor_pos.0 - self.click_pos.0),
-                            bytemuck::cast::<_, f32>(self.cursor_pos.1 - self.click_pos.1),
+                            bytemuck::cast::<_, f32>(self.cursor_pos.0 as i32 - self.click_pos.0 as i32),
+                            bytemuck::cast::<_, f32>(self.cursor_pos.1 as i32 - self.click_pos.1 as i32),
                         ]
                     ));
                     self.wgpu_prog.shader_prog.selectangle(&mut self.wgpu_config, (self.canvas.size.width, self.canvas.size.height));
@@ -314,7 +315,7 @@ impl Client {
                         state: ElementState::Pressed,
                         ..
                     } => {
-                            self.canvas.window.toggle_fullscreen();
+                            self.canvas.window.set_fullscreen(Some(Fullscreen::Borderless(None)));
                             return true;
                         },
                     KeyboardInput {
