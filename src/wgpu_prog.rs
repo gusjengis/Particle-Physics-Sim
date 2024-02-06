@@ -33,6 +33,7 @@ pub struct WGPUProg {
     pub render_pipeline: wgpu::RenderPipeline,
     pub render_pipeline2: wgpu::RenderPipeline,
     pub render_pipeline3: wgpu::RenderPipeline,
+    pub render_pipeline4: wgpu::RenderPipeline,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub clear_color: wgpu::Color,
@@ -69,6 +70,10 @@ impl WGPUProg {
         let shader3 = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/2D_Render_3.wgsl").into()),
+        });
+        let shader4 = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/2D_Render_4.wgsl").into()),
         });
         let dim_contents = &[config.size.width as f32, config.size.height as f32, config.size.width as f32, config.size.height as f32, 0 as f32, 0 as f32, 1 as f32, 0 as f32];
         let dim_uniform = Uniform::new(&config.device, bytemuck::cast_slice(dim_contents), String::from("dimensions"), 0);
@@ -249,6 +254,60 @@ impl WGPUProg {
             }
         );
 
+        let render_pipeline4 = config.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader4,
+                entry_point: "vs_main", // 1.
+                buffers: &[Vertex::desc()], // 2.
+            },
+            fragment: Some(wgpu::FragmentState { // 3.
+                module: &shader4,
+                entry_point: "fs_main",
+                targets: &[Some(wgpu::ColorTargetState { // 4.
+                    format: wgpu::TextureFormat::Bgra8UnormSrgb,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList, // 1.
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw, // 2.
+                cull_mode: Some(wgpu::Face::Back),
+                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+                polygon_mode: wgpu::PolygonMode::Fill,
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false,
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false,
+            },
+            depth_stencil: None, // 1.
+            multisample: wgpu::MultisampleState {
+                count: 1, // 2.
+                mask: !0, // 3.
+                alpha_to_coverage_enabled: false, // 4.
+            },
+            multiview: None, // 5.
+        });
+
+        let vertex_buffer = config.device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(VERTICES),
+                usage: wgpu::BufferUsages::VERTEX,
+            }
+        );
+
+        let index_buffer = config.device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Index Buffer"),
+                contents: bytemuck::cast_slice(INDICES),
+                usage: wgpu::BufferUsages::INDEX,
+            }
+        );
+
         
         
         Self{
@@ -257,6 +316,7 @@ impl WGPUProg {
             render_pipeline,
             render_pipeline2,
             render_pipeline3,
+            render_pipeline4,
             vertex_buffer,
             index_buffer,
             clear_color,
@@ -286,31 +346,31 @@ impl WGPUProg {
     pub fn resize(&mut self, config: &mut WGPUConfig, dimensions: (u32, u32)) {
         self.shader_prog.hit_tex = Texture::new_from_dimensions(config, dimensions, 0, wgpu::TextureFormat::Bgra8Unorm);
         
-        let click_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Collision compute"),
-            bind_group_layouts: &[&self.shader_prog.click_input.bind_group_layout, &self.shader_prog.selections.bind_group_layout, &self.shader_prog.hit_tex.bind_group_layout, &self.shader_prog.click_buffer.bind_group_layout],
-            push_constant_ranges: &[]
-        });
+        // let click_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        //     label: Some("Collision compute"),
+        //     bind_group_layouts: &[&self.shader_prog.click_input.bind_group_layout, &self.shader_prog.selections.bind_group_layout, &self.shader_prog.hit_tex.bind_group_layout, &self.shader_prog.click_buffer.bind_group_layout],
+        //     push_constant_ranges: &[]
+        // });
 
-        self.shader_prog.click_compute_pipeline = config.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: None,
-            layout: Some(&click_compute_pipeline_layout),
-            module: &self.shader_prog.click_compute_shader,
-            entry_point: "main",
-        });
+        // self.shader_prog.click_compute_pipeline = config.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        //     label: None,
+        //     layout: Some(&click_compute_pipeline_layout),
+        //     module: &self.shader_prog.click_compute_shader,
+        //     entry_point: "main",
+        // });
 
-        let selectangle_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Collision compute"),
-            bind_group_layouts: &[&self.shader_prog.selectangle_input.bind_group_layout, &self.shader_prog.selections.bind_group_layout, &self.shader_prog.hit_tex.bind_group_layout, &self.shader_prog.click_buffer.bind_group_layout],
-            push_constant_ranges: &[]
-        });
+        // let selectangle_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        //     label: Some("Collision compute"),
+        //     bind_group_layouts: &[&self.shader_prog.selectangle_input.bind_group_layout, &self.shader_prog.selections.bind_group_layout, &self.shader_prog.hit_tex.bind_group_layout, &self.shader_prog.click_buffer.bind_group_layout],
+        //     push_constant_ranges: &[]
+        // });
 
-        self.shader_prog.selectangle_compute_pipeline = config.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: None,
-            layout: Some(&selectangle_compute_pipeline_layout),
-            module: &self.shader_prog.click_compute_shader,
-            entry_point: "main",
-        });
+        // self.shader_prog.selectangle_compute_pipeline = config.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        //     label: None,
+        //     layout: Some(&selectangle_compute_pipeline_layout),
+        //     module: &self.shader_prog.click_compute_shader,
+        //     entry_point: "main",
+        // });
     }
 }
 
@@ -336,6 +396,8 @@ pub struct WGPUComputeProg {
     pub selectangle_compute_pipeline: wgpu::ComputePipeline,
     pub release_compute_pipeline: wgpu::ComputePipeline,
     pub drag_compute_pipeline: wgpu::ComputePipeline,
+    pub fix_compute_pipeline: wgpu::ComputePipeline,
+    pub drop_compute_pipeline: wgpu::ComputePipeline,
 
     pub hit_tex: Texture
 }
@@ -496,6 +558,16 @@ impl WGPUComputeProg {
             source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/Translate.wgsl").into()),
         });
 
+        let fix_compute_shader = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/Fix.wgsl").into()),
+        });
+
+        let drop_compute_shader = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/Drop.wgsl").into()),
+        });
+
 
         //create pipeline layout
         let compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -518,19 +590,31 @@ impl WGPUComputeProg {
 
         let selectangle_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Selectangle compute"),
-            bind_group_layouts: &[&selectangle_input.bind_group_layout, &selections.bind_group_layout, &hit_tex.bind_group_layout, &click_buffer.bind_group_layout],
+            bind_group_layouts: &[&selectangle_input.bind_group_layout, &selections.bind_group_layout, &hit_tex.bind_group_layout, &click_buffer.bind_group_layout, &mov_buffers.bind_group_layout],
             push_constant_ranges: &[]
         });
 
         let click_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Click compute"),
-            bind_group_layouts: &[&click_input.bind_group_layout, &selections.bind_group_layout, &hit_tex.bind_group_layout, &click_buffer.bind_group_layout],
+            bind_group_layouts: &[&click_input.bind_group_layout, &selections.bind_group_layout, &hit_tex.bind_group_layout, &click_buffer.bind_group_layout, &mov_buffers.bind_group_layout],
             push_constant_ranges: &[]
         });
 
         let release_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Release compute"),
             bind_group_layouts: &[&release_input.bind_group_layout, &selections.bind_group_layout, &mov_buffers.bind_group_layout, &click_buffer.bind_group_layout],
+            push_constant_ranges: &[]
+        });
+
+        let fix_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Fix compute"),
+            bind_group_layouts: &[&selections.bind_group_layout, &mov_buffers.bind_group_layout, &click_buffer.bind_group_layout],
+            push_constant_ranges: &[]
+        });
+
+        let drop_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Drop compute"),
+            bind_group_layouts: &[&selections.bind_group_layout, &mov_buffers.bind_group_layout, &click_buffer.bind_group_layout],
             push_constant_ranges: &[]
         });
 
@@ -577,7 +661,20 @@ impl WGPUComputeProg {
             module: &release_compute_shader,
             entry_point: "main",
         });
+        
+        let fix_compute_pipeline = config.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: None,
+            layout: Some(&fix_compute_pipeline_layout),
+            module: &fix_compute_shader,
+            entry_point: "main",
+        });
 
+        let drop_compute_pipeline = config.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: None,
+            layout: Some(&drop_compute_pipeline_layout),
+            module: &drop_compute_shader,
+            entry_point: "main",
+        });
 
         Self {
             pos_buffer,
@@ -601,6 +698,8 @@ impl WGPUComputeProg {
             selectangle_compute_pipeline,
             release_compute_pipeline,
             drag_compute_pipeline,
+            fix_compute_pipeline,
+            drop_compute_pipeline,
             hit_tex
         }
     }
@@ -619,6 +718,8 @@ impl WGPUComputeProg {
             compute_pass.set_bind_group(1, &self.selections.bind_group, &[]);   
             compute_pass.set_bind_group(2, &self.hit_tex.diffuse_bind_group, &[]);   
             compute_pass.set_bind_group(3, &self.click_buffer.bind_group, &[]);   
+            compute_pass.set_bind_group(4, &self.mov_buffers.bind_group, &[]);  
+
 
             compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
             
@@ -641,6 +742,8 @@ impl WGPUComputeProg {
             compute_pass.set_bind_group(1, &self.selections.bind_group, &[]);   
             compute_pass.set_bind_group(2, &self.hit_tex.diffuse_bind_group, &[]);   
             compute_pass.set_bind_group(3, &self.click_buffer.bind_group, &[]);   
+            compute_pass.set_bind_group(4, &self.mov_buffers.bind_group, &[]);  
+
 
             compute_pass.dispatch_workgroups(((dimensions.0*dimensions.1) as f32/256.0).ceil() as u32, 1, 1);
             
@@ -687,6 +790,48 @@ impl WGPUComputeProg {
             compute_pass.set_bind_group(3, &self.mov_buffers.bind_group, &[]);     
             compute_pass.set_bind_group(4, &self.click_buffer.bind_group, &[]);   
 
+
+            compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
+            
+        }
+
+        config.queue.submit(Some(encoder.finish()));
+    }
+
+    pub fn fix(&mut self, config: &mut WGPUConfig) {
+        let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+        let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
+
+        {
+            let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
+
+            compute_pass.set_pipeline(&self.fix_compute_pipeline);
+            
+            compute_pass.set_bind_group(0, &self.selections.bind_group, &[]);    
+            compute_pass.set_bind_group(1, &self.mov_buffers.bind_group, &[]);     
+            compute_pass.set_bind_group(2, &self.click_buffer.bind_group, &[]);   
+
+            compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
+            
+        }
+
+        config.queue.submit(Some(encoder.finish()));
+    }
+
+    pub fn drop(&mut self, config: &mut WGPUConfig) {
+        let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+        let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
+
+        {
+            let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
+
+            compute_pass.set_pipeline(&self.drop_compute_pipeline);
+            
+            compute_pass.set_bind_group(0, &self.selections.bind_group, &[]);    
+            compute_pass.set_bind_group(1, &self.mov_buffers.bind_group, &[]);     
+            compute_pass.set_bind_group(2, &self.click_buffer.bind_group, &[]);   
 
             compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
             

@@ -481,6 +481,15 @@ impl Client {
                         ..
                     } => {
                             self.D = true;
+                            self.wgpu_prog.shader_prog.drop(&mut self.wgpu_config);
+                            return true;
+                        },
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::F),
+                        state: ElementState::Pressed,
+                        ..
+                    } => {
+                            self.wgpu_prog.shader_prog.fix(&mut self.wgpu_config);
                             return true;
                         },
                     KeyboardInput {
@@ -610,7 +619,13 @@ impl Client {
                 self.xOff as f32,
                 self.yOff as f32,
                 self.wgpu_config.prog_settings.scale as f32,
-                self.dark as f32]
+                self.dark as f32,
+                bytemuck::cast(self.click_pos.0),
+                bytemuck::cast(self.click_pos.1),
+                bytemuck::cast(self.cursor_pos.0 - self.click_pos.0),
+                bytemuck::cast(self.cursor_pos.1 - self.click_pos.1),
+                bytemuck::cast(self.middle as i32),
+                ]
             ));   
             
             if self.wgpu_config.prog_settings.materials_changed {
@@ -694,6 +709,38 @@ impl Client {
                 
                 render_pass3.draw_indexed(0..6 as u32, 0, 0..self.wgpu_config.prog_settings.particles as u32);
             }
+
+            // {
+            //     let mut render_pass4 = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            //         label: Some("Render Pass"),
+            //         color_attachments: &[
+            //             Some(wgpu::RenderPassColorAttachment {
+            //                 view: &output_view,//self.wgpu_prog.shader_prog.hit_tex.view,
+            //                 resolve_target: None,
+            //                 ops: wgpu::Operations {
+            //                     load: wgpu::LoadOp::Clear(self.wgpu_prog.clear_color),
+            //                     store: true,
+            //                 }
+            //             })
+            //             ],
+            //         depth_stencil_attachment: None,
+            //     });
+
+            //     render_pass4.set_pipeline(&self.wgpu_prog.render_pipeline4);
+            //     render_pass4.set_bind_group(0, &self.wgpu_prog.dim_uniform.bind_group, &[]);
+            //     render_pass4.set_bind_group(1, &self.wgpu_prog.shader_prog.pos_buffer.bind_group, &[]);
+            //     render_pass4.set_bind_group(2, &self.wgpu_prog.shader_prog.radii_buffer.bind_group, &[]);
+            //     // render_pass4.set_bind_group(3, &self.wgpu_prog.shader_prog.color_buffer.bind_group, &[]);
+            //     render_pass4.set_bind_group(3, &self.wgpu_prog.shader_prog.mov_buffers.bind_group, &[]);
+            //     render_pass4.set_bind_group(4, &self.wgpu_prog.shader_prog.contact_buffers.bind_group, &[]);
+            //     render_pass4.set_bind_group(5, &self.wgpu_prog.ren_set_uniform.bind_group, &[]);
+            //     render_pass4.set_bind_group(6, &self.wgpu_prog.shader_prog.material_buffer.bind_group, &[]);
+            //     render_pass4.set_bind_group(7, &self.wgpu_prog.shader_prog.selections.bind_group, &[]);
+            //     render_pass4.set_vertex_buffer(0, self.wgpu_prog.vertex_buffer.slice(..));
+            //     render_pass4.set_index_buffer(self.wgpu_prog.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                
+            //     render_pass4.draw_indexed(0..6 as u32, 0, 0..self.wgpu_config.prog_settings.particles as u32);
+            // }
 
             {
                 let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

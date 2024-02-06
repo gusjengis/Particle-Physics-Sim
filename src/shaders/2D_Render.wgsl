@@ -7,6 +7,9 @@ struct Dimensions {
     height: f32, temp: f32,
     xOff: f32, yOff: f32,
     scale: f32, dark: f32,
+    x: i32, y: i32,
+    rW: i32, rH: i32,
+    pressed: i32
 }
 
 struct Camera {
@@ -31,7 +34,9 @@ struct VertexOutput {
     @location(2) rot: f32,
     @location(3) rot_vel: f32,
     @location(4) id: u32,
-    @location(5) selected: i32
+    @location(5) selected: i32,
+    @location(6) w_h: vec2<i32>,
+    @location(7) pixel: vec2<f32>,
 };
 
 struct Settings {
@@ -91,10 +96,13 @@ fn vs_main(
             rand(seed3, 1.0),
         );
     }
+    // let rect_off = vec2(-dim.xOff, dim.yOff)/1000.0/scale;
     out.rot = rot_buf[instance];
     out.rot_vel = rot_vel[instance];
     out.id = instance;
     out.selected = selections[instance];
+    out.w_h = vec2(i32(dim.width), i32(dim.height));
+    out.pixel = out.clip_position.xy;
     return out;
 }
 
@@ -141,6 +149,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         if len > 0.5-border_width && len < 0.5 {
             if in.selected == 1 {
                 color = vec4(1.0, 0.8, 0.0, 1.0);
+            } else if in.selected == 2 {
+                color = vec4(0.2, 0.8, 1.0, 1.0);
             } else {
                 if settings.colors == 0 { 
                     color = vec4(0.05, 0.05, 0.05, 1.0);
@@ -175,5 +185,46 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     }
     
     //done
+    if dim.pressed == 1 {
+        let pos = (vec2(in.pixel.x + 1.0, -in.pixel.y + 1.0))/2.0;
+        let pixel = vec2(i32(pos.x*f32(in.w_h.x)),i32(pos.y*f32(in.w_h.y)));
+        let lower_x = min(dim.x, dim.x + dim.rW);
+        let upper_x = max(dim.x, dim.x + dim.rW);
+        let lower_y = min(dim.y, dim.y + dim.rH);
+        let upper_y = max(dim.y, dim.y + dim.rH);
+        if pixel.x > lower_x && pixel.x < upper_x && pixel.y > lower_y && pixel.y < upper_y {
+            if pixel.x == lower_x + 1 || pixel.x == upper_x - 1 || pixel.y == lower_y + 1 || pixel.y == upper_y - 1 {
+                color = vec4(
+                    srgb_to_linear(0.0/255.0),
+                    srgb_to_linear(120.0/255.0),
+                    srgb_to_linear(215.0/255.0),
+                    0.0
+                );
+            } else {
+                color = color + vec4(
+                    srgb_to_linear(0.0/255.0),
+                    srgb_to_linear(28.0/255.0),
+                    srgb_to_linear(56.0/255.0),
+                    0.0
+                );
+            }
+        }
+    }
     return color;
+}
+
+fn linear_to_srgb(value: f32) -> f32 {
+    if (value <= 0.0031308) {
+        return 12.92 * value;
+    } else {
+        return 1.055 * pow(value, 1.0 / 2.4) - 0.055;
+    }
+}
+
+fn srgb_to_linear(value: f32) -> f32 {
+    if value <= 0.04045 {
+        return value / 12.92;
+    } else {
+        return pow((value + 0.055) / 1.055, 2.4);
+    }
 }

@@ -39,7 +39,7 @@ const deltaTime: f32 = 0.0000390625;
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let id: u32 = global_id.x;
-    if click_info[0] == 1 && selections[id] == 1 { 
+    if click_info[0] == 1 && selections[id] != 0 { 
         positions[id] = positions[id] + vec2(input.x*input.aspect, input.y);
         velocities[id] = vec2(0.0, 0.0);//vec2(input.x, input.y)/deltaTime;
         velocities_buf[id] = vec2(0.0, 0.0);//vec2(input.x, input.y)/deltaTime;
