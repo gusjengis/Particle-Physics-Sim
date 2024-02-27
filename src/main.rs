@@ -5,6 +5,7 @@ pub mod wgpu_structs;
 pub mod wgpu_prog;
 pub mod settings;
 pub mod setup;
+pub mod state;
 
 pub  fn main(){
     env_logger::init();

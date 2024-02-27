@@ -1,0 +1,16 @@
+table State {
+  particles: int;
+  pos: [float];
+  vel: [float];
+  acc: [float];
+  rot: [float];
+  rot_vel: [float];
+  forces: [float];
+  radii: [float];
+  fixity: [int];
+  bonds: [int];
+  bond_info: [int];
+  material_pointers: [int];
+}
+
+root_type State;

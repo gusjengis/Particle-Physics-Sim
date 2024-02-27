@@ -20,7 +20,7 @@ pub fn p_count(settings: &mut Settings) -> usize {
 }
 
 
-pub fn grid(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
+pub fn grid(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
     settings.two_part = false;
 
     settings.materials.resize(settings.material_size*2, 0.0);
@@ -63,7 +63,7 @@ pub fn grid(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
         if (i as f32/settings.grid_width%2.0).floor() == 1.0 {
             pos[i*2] += off;
         }
-        pos[i*2+1] = (i as f32/settings.grid_width)/max_pos_y - p_count as f32/settings.grid_width/max_pos_y/2.0;
+        pos[i*2+1] = ((i as f32)/settings.grid_width).floor()/max_pos_y - p_count as f32/settings.grid_width/max_pos_y/2.0;
 
         if min_h_vel < max_h_vel { vel[i*2] = rng.gen_range(min_h_vel..max_h_vel); } else { vel[i*2] = min_h_vel; }
         if min_v_vel < max_v_vel { vel[i*2+1] = rng.gen_range(min_v_vel..max_v_vel); } else { vel[i*2+1] = min_v_vel; }
@@ -73,13 +73,10 @@ pub fn grid(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
     }
     for i in 0..radii.len() as usize {
         if settings.variable_rad && min_rad < max_rad {
-            radii[i] = rng.gen_range(min_rad..max_rad);//*(material_pointers[i] as f32*25.0 + 1.0);
+            radii[i] = rng.gen_range(min_rad..max_rad)*(material_pointers[i] as f32*25.0 + 1.0);
         } else {
             radii[i] = max_rad;
         }
-    }
-    for i in 0..color.len() as usize {
-        color[i] = rng.gen_range(0.1..1.0);
     }
     // Initialize Collision Sections
     let vert_bound = 2.0;
@@ -168,8 +165,8 @@ pub fn grid(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
 }
 
 // Two-Particle Experiments
-pub fn exp1(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
-    settings.colors = 1;
+pub fn exp1(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
+    settings.colors = true;
     settings.gravity = true;
     settings.friction = true;
     // settings.bonds = 2;
@@ -199,8 +196,8 @@ pub fn exp1(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
                  1, 1]); // bond_info
 }
 
-pub fn exp2(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
-    settings.colors = 1;
+pub fn exp2(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
+    settings.colors = true;
     let mut rng = rand::thread_rng();
 
     settings.gravity = false;
@@ -238,8 +235,8 @@ pub fn exp2(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
 
 }
 
-pub fn exp3(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
-    settings.colors = 1;
+pub fn exp3(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
+    settings.colors = true;
     settings.gravity = false;
     // settings.hor_bound = 1.5;    
     // settings.vert_bound = 1.0;
@@ -275,8 +272,8 @@ pub fn exp3(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
 
 }
 
-pub fn exp4(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
-    settings.colors = 1;
+pub fn exp4(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
+    settings.colors = true;
     settings.gravity = false;
     // settings.hor_bound = 1.5;    
     // settings.vert_bound = 1.0;
@@ -312,8 +309,8 @@ pub fn exp4(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
 
 }
 
-pub fn exp5(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
-    settings.colors = 1;
+pub fn exp5(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
+    settings.colors = true;
     settings.gravity = false;
     // settings.hor_bound = 2.666;    
     // settings.vert_bound = 2.0;
@@ -349,8 +346,8 @@ pub fn exp5(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
 
 }
 
-pub fn exp6(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
-    settings.colors = 1;
+pub fn exp6(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
+    settings.colors = true;
     settings.gravity = false;
     settings.linear_contact_bonds = false;
     settings.friction = false;
@@ -391,8 +388,8 @@ pub fn exp6(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
     return (vec![-1; 2*2], vec![-1; 2*settings.max_bonds]);
 }
 
-pub fn mats(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, color: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
-    settings.colors = 1;
+pub fn mats(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot: &mut Vec<f32>, rot_vel: &mut Vec<f32>, radii: &mut Vec<f32>, fixity: &mut Vec<i32>, forces: &mut Vec<f32>, material_pointers: &mut Vec<i32>) -> (Vec<i32>, Vec<i32>){
+    settings.colors = true;
     settings.gravity = true;
     settings.friction = true;
     // settings.bonds = false;

@@ -440,7 +440,7 @@ impl Texture {
 
 pub struct BufferUniform{
     label: String,
-    buffer: wgpu::Buffer,
+    pub buffer: wgpu::Buffer,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub bind_group: wgpu::BindGroup,
     binding: u32
@@ -452,7 +452,7 @@ impl BufferUniform {
             &wgpu::util::BufferInitDescriptor {
                 label: Some(&label),
                 contents: contents,
-                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::UNIFORM |wgpu::BufferUsages::COPY_DST,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::UNIFORM |wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
             }
         );
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -489,12 +489,13 @@ impl BufferUniform {
             binding: binding
         }
     }
+
     pub fn updateUniform(&mut self, device: &wgpu::Device, contents: &[u8]){
         let buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some(&self.label),
                 contents: contents,
-                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::UNIFORM |wgpu::BufferUsages::COPY_DST,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::UNIFORM |wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
             }
         );
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -555,7 +556,7 @@ pub struct BufferGroup{
     label: String,
     layout_entries: Vec<BindGroupLayoutEntry>,
     // entries: Vec<BindGroupEntry>,
-    buffers: Vec<Buffer>,
+    pub buffers: Vec<Buffer>,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub bind_group: wgpu::BindGroup,
 }
@@ -568,7 +569,7 @@ impl BufferGroup {
                 &wgpu::util::BufferInitDescriptor {
                     label: Some(&label),
                     contents: contents[i],
-                    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
                 }
             ));
         }
@@ -607,6 +608,44 @@ impl BufferGroup {
             bind_group_layout, 
             bind_group,
         }
+    }
+
+    pub fn updateBuffer(&mut self, device: &wgpu::Device, contents: &[u8], index: usize){
+        self.buffers[index] = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some(&self.label),
+                contents: contents,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::UNIFORM |wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
+            }
+        );
+        let mut layout_entries = vec![];
+        let mut entries = vec![];
+        for i in 0..self.buffers.len() {
+            layout_entries.push(wgpu::BindGroupLayoutEntry {
+                binding: i as u32,
+                visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX_FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage {read_only: false},
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            });
+            entries.push(wgpu::BindGroupEntry {
+                binding: i as u32,
+                resource: self.buffers[i].as_entire_binding(),
+            });
+        }
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &layout_entries,
+            label: Some(&self.label),
+        });
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &bind_group_layout,
+            entries: &entries,
+            label: Some(&self.label),
+        });
+        self.bind_group = bind_group;
     }
 
     // pub fn setReadOnly(&mut self, bufferID: usize, readonly: bool){

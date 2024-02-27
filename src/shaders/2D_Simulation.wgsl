@@ -30,6 +30,7 @@ struct Settings {
     hor_bound: f32,
     vert_bound: f32,
     gravity: i32,
+    planet_mode: i32,
     bonds: i32,
     collisions: i32,
     friction: i32,
@@ -271,11 +272,14 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let rot_inertia = 0.5*mass1*radii[id]*radii[id];
     velocities_buf[id] = velocities[id] + net_force/mass1;
     rot_vel_buf[id] = rot_vel[id] + net_moment/rot_inertia;
-    if settings.gravity == 1 {
+    if settings.gravity == 1 && settings.planet_mode == 1  {
+        let delta = (vec2(0.0, 0.0) - positions[id]);
+        velocities_buf[id] += delta/length(delta) * 9.81 * settings.gravity_acc * deltaTime;
+    } else if settings.gravity == 1 {
         let gravity = 9.81 * settings.gravity_acc * deltaTime;
         velocities_buf[id] += vec2(0.0, -gravity);
     }
-    // BS Walls
+    /// BS Walls
     let pos = positions[id];
     let rad = radii[id];
     let elasticity = 0.5;

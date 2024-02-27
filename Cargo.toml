@@ -20,10 +20,13 @@ target_arch = "wasm32"
 rustflags = [  "-C", "link-arg=-s",  "-C", "link-arg=--no-entry",  "-C", "link-arg=--export-table",  "-C", "link-arg=--import-memory",  "-C", "link-arg=--allow-undefined"]#"--cfg=web_sys_unstable_apis",
 
 [dependencies]
+flatbuffers = "23.5.26"
 egui = "0.22.0"
 egui_winit_platform= "0.19.0"
 egui_wgpu_backend = "0.24.0"
 egui_demo_lib = "0.22.0"
+# egui_file = "0.16"
+# eframe = "0.26"
 cfg-if = "1"
 winit = "0.28.3"
 env_logger = "0.10.0"
@@ -37,6 +40,7 @@ chrono = "0.4.24"
 cgmath = "0.18"
 getrandom = { version = "0.2.9", features = ["js"] }
 bytemuck = { version = "1.12", features = [ "derive" ] }
+native-dialog = "0.7.0"
 [dependencies.image]
 version = "0.24"
 default-features = false
