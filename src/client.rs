@@ -657,6 +657,10 @@ impl Client {
             //Bond Regen
             if self.wgpu_config.prog_settings.regen_bonds {
                 self.wgpu_config.prog_settings.regen_bonds = false;
+                self.wgpu_prog.shader_prog.update_state(&mut self.wgpu_config);
+                self.wgpu_prog.shader_prog.state.regen_bonds(&mut self.wgpu_config);
+                self.wgpu_prog.shader_prog.state.save(&mut self.wgpu_config);
+                self.wgpu_prog.shader_prog.restore(&mut self.wgpu_config);
             }
 
             // Begin to draw the UI frame.
