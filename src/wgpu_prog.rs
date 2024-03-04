@@ -388,6 +388,7 @@ pub struct BufferContainer {
     pub selectangle_input: Uniform,
     pub release_input: Uniform,
     pub drag_input: Uniform,
+    pub set_prop_input: Uniform,
     pub selections: BufferUniform,
     pub material_buffer: BufferUniform,
 }
@@ -404,6 +405,7 @@ impl BufferContainer {
         selectangle_input: Uniform,
         release_input: Uniform,
         drag_input: Uniform,
+        set_prop_input: Uniform,
         selections: BufferUniform,
         material_buffer: BufferUniform,
         ) -> Self {
@@ -419,6 +421,7 @@ impl BufferContainer {
             selectangle_input,
             release_input,
             drag_input,
+            set_prop_input,
             selections,
             material_buffer,
         }
@@ -440,6 +443,7 @@ pub struct WGPUComputeProg {
     pub drag_compute_pipeline: wgpu::ComputePipeline,
     pub fix_compute_pipeline: wgpu::ComputePipeline,
     pub drop_compute_pipeline: wgpu::ComputePipeline,
+    pub set_prop_compute_pipeline: wgpu::ComputePipeline,
     pub hit_tex: Texture
 }
 
@@ -488,6 +492,7 @@ impl WGPUComputeProg {
         let selectangle_input = Uniform::new(&config.device, bytemuck::cast_slice(&[0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32]), "Selectangle Data".to_string(), 0);
         let release_input = Uniform::new(&config.device, bytemuck::cast_slice(&[0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32]), "Release Data".to_string(), 0);
         let drag_input = Uniform::new(&config.device, bytemuck::cast_slice(&[0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32]), "Drag Data".to_string(), 0);
+        let set_prop_input = Uniform::new(&config.device, bytemuck::cast_slice(&[0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32]), "Drag Data".to_string(), 0);
         let selections = BufferUniform::new(&config.device, bytemuck::cast_slice(&selected), "Selection Buffer".to_string(), 0);
         let hit_tex = Texture::new_from_dimensions(&config, dimensions, 0, wgpu::TextureFormat::Bgra8Unorm);
 
@@ -502,6 +507,7 @@ impl WGPUComputeProg {
             selectangle_input,
             release_input,
             drag_input,
+            set_prop_input,
             selections,
             material_buffer
         );
@@ -550,6 +556,10 @@ impl WGPUComputeProg {
             source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/Drop.wgsl").into()),
         });
 
+        let set_prop_compute_shader = config.device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(include_str!("./shaders/Set_Properties.wgsl").into()),
+        });
 
         //create pipeline layout
         let compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -600,6 +610,11 @@ impl WGPUComputeProg {
             push_constant_ranges: &[]
         });
 
+        let set_prop_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Collision compute"),
+            bind_group_layouts: &[&buffers.pos_buffer.bind_group_layout, &buffers.mov_buffers.bind_group_layout, &buffers.radii_buffer.bind_group_layout, &buffers.contact_buffers.bind_group_layout, &buffers.material_buffer.bind_group_layout, &buffers.set_prop_input.bind_group_layout],
+            push_constant_ranges: &[]
+        });
 
         //create pipeline
         let compute_pipeline = config.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -658,6 +673,13 @@ impl WGPUComputeProg {
             entry_point: "main",
         });
 
+        let set_prop_compute_pipeline = config.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: None,
+            layout: Some(&set_prop_compute_pipeline_layout),
+            module: &set_prop_compute_shader,
+            entry_point: "main",
+        });
+
         Self {
             state,
             buffers,
@@ -671,6 +693,7 @@ impl WGPUComputeProg {
             drag_compute_pipeline,
             fix_compute_pipeline,
             drop_compute_pipeline,
+            set_prop_compute_pipeline,
             hit_tex
         }
     }
@@ -895,6 +918,30 @@ impl WGPUComputeProg {
             compute_pass.set_bind_group(0, &self.buffers.selections.bind_group, &[]);    
             compute_pass.set_bind_group(1, &self.buffers.mov_buffers.bind_group, &[]);     
             compute_pass.set_bind_group(2, &self.buffers.click_buffer.bind_group, &[]);   
+
+            compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
+            
+        }
+
+        config.queue.submit(Some(encoder.finish()));
+    }
+
+    pub fn set_properties(&mut self, config: &mut WGPUConfig) {
+        let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        
+        let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
+
+        {
+            let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
+
+            compute_pass.set_pipeline(&self.set_prop_compute_pipeline);
+            
+            compute_pass.set_bind_group(0, &self.buffers.pos_buffer.bind_group, &[]);    
+            compute_pass.set_bind_group(1, &self.buffers.mov_buffers.bind_group, &[]);     
+            compute_pass.set_bind_group(2, &self.buffers.radii_buffer.bind_group, &[]);   
+            compute_pass.set_bind_group(3, &self.buffers.contact_buffers.bind_group, &[]);   
+            compute_pass.set_bind_group(4, &self.buffers.selections.bind_group, &[]);   
+            compute_pass.set_bind_group(5, &self.buffers.set_prop_input.bind_group, &[]);   
 
             compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
             

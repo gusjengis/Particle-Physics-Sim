@@ -663,6 +663,13 @@ impl Client {
                 self.wgpu_prog.shader_prog.restore(&mut self.wgpu_config);
             }
 
+            //Set Properties
+            if self.wgpu_config.prog_settings.set_properties {
+                self.wgpu_config.prog_settings.set_properties = false;
+                self.wgpu_prog.shader_prog.buffers.set_prop_input.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(&self.wgpu_config.prog_settings.properties()));
+                self.wgpu_prog.shader_prog.set_properties(&mut self.wgpu_config);
+            }
+
             // Begin to draw the UI frame.
             self.platform.begin_frame();
             let needs_reset = self.wgpu_config.prog_settings.ui(&self.platform.context());

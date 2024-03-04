@@ -25,13 +25,15 @@ pub struct Properties {
     pub set_x_fixity: bool,
     pub set_y_fixity: bool,
     pub set_rot_fixity: bool,
+    pub set_radius: bool,
     pub x_force: f32,
     pub y_force: f32,
     pub rot_force: f32,
     pub material: i32,
-    pub x_fixity: i32,
-    pub y_fixity: i32,
-    pub rot_fixity: i32,
+    pub x_fixity: bool,
+    pub y_fixity: bool,
+    pub rot_fixity: bool,
+    pub radius: f32,
 }
 
 pub struct Settings {
@@ -85,7 +87,8 @@ pub struct Settings {
     pub load: bool,
     pub save: bool,
     pub regen_bonds: bool,
-    pub properties: Properties
+    pub properties: Properties,
+    pub set_properties: bool,
 }
 
 impl Settings {
@@ -213,14 +216,17 @@ impl Settings {
                 set_x_fixity: false,
                 set_y_fixity: false,
                 set_rot_fixity: false,
+                set_radius: false,
                 x_force: 0.0,
                 y_force: 0.0,
                 rot_force: 0.0,
                 material: 0,
-                x_fixity: 0,
-                y_fixity: 0,
-                rot_fixity: 0,
-            }
+                x_fixity: false,
+                y_fixity: false,
+                rot_fixity: false,
+                radius: 0.0,
+            },
+            set_properties: false
         }
     }
 
@@ -248,7 +254,7 @@ impl Settings {
                 });
             });
             if self.menu.render_settings {
-                egui::Window::new("Render Settings").collapsible(false).show(ctx, |ui| {
+                egui::Window::new("Render Settings").collapsible(false).auto_sized().show(ctx, |ui| {
                     ui.checkbox(&mut self.circular_particles, "Circular Particles");
                     ui.checkbox(&mut self.render_rot, "Render Rotation");
                     ui.checkbox(&mut self.render_bonds, "Render Bonds");
@@ -258,20 +264,82 @@ impl Settings {
                 });    
             }
             if self.menu.properties_menu {
-                egui::Window::new("Properties").collapsible(false).show(ctx, |ui| {
-                    ui.label("Forces");
-                    // ui.heading("Forces");
-                    // ui.small("Forces");
-                    ui.checkbox(&mut self.properties.set_x_force, "X Force");
-                    ui.add(egui::Slider::new(&mut self.properties.x_force, -10.0..=10.0).text("X Force"));
-                    ui.checkbox(&mut self.properties.set_y_force, "Y Force");
-                    ui.add(egui::Slider::new(&mut self.properties.y_force, -10.0..=10.0).text("Y Force"));
-                    ui.checkbox(&mut self.properties.set_rot_force, "Rotational Force");
-                    ui.add(egui::Slider::new(&mut self.properties.rot_force, -10.0..=10.0).text("Rotational Force"));
+                egui::Window::new("Properties").collapsible(false).auto_sized().show(ctx, |ui| {
+                    ui.horizontal(|inner_ui| {
+                        inner_ui.vertical(|inner_ui2| {
+                            inner_ui2.label("Forces");
+                            inner_ui2.horizontal(|inner_ui3| {
+                                inner_ui3.checkbox(&mut self.properties.set_x_force, "");
+                                inner_ui3.add_enabled_ui(self.properties.set_x_force, |inner_ui4| {
+                                    inner_ui4.add(egui::DragValue::new(&mut self.properties.x_force).speed(0.01));
+                                });
+                                inner_ui3.label("X Force");
+                            });
+                            inner_ui2.horizontal(|inner_ui3| {
+                                inner_ui3.checkbox(&mut self.properties.set_y_force, "");
+                                inner_ui3.add_enabled_ui(self.properties.set_y_force, |inner_ui4| {
+                                    inner_ui4.add(egui::DragValue::new(&mut self.properties.y_force).speed(0.01));
+                                });
+                                inner_ui3.label("Y Force");
+                            });
+                            inner_ui2.horizontal(|inner_ui3| {
+                                inner_ui3.checkbox(&mut self.properties.set_rot_force, "");
+                                inner_ui3.add_enabled_ui(self.properties.set_rot_force, |inner_ui4| {
+                                    inner_ui4.add(egui::DragValue::new(&mut self.properties.rot_force).speed(0.01));
+                                });
+                                inner_ui3.label("Rotational Force");
+                            });
+                            inner_ui2.label("Radius");
+                            inner_ui2.horizontal(|inner_ui3| {
+                                inner_ui3.checkbox(&mut self.properties.set_radius, "");
+                                inner_ui3.add_enabled_ui(self.properties.set_radius, |inner_ui4| {
+                                    inner_ui4.add(egui::DragValue::new(&mut self.properties.radius).speed(0.001).clamp_range(0.0..=f32::MAX));
+                                });
+                                // inner_ui3.label("X Force");
+                            });
+                            inner_ui2.label("Fixity");
+                            inner_ui2.horizontal(|inner_ui3| {
+                                inner_ui3.checkbox(&mut self.properties.set_x_fixity, "");
+                                inner_ui3.add_enabled_ui(self.properties.set_x_fixity, |inner_ui4| {
+                                    if inner_ui4.add(egui::SelectableLabel::new(self.properties.x_fixity, match self.properties.x_fixity {true => {"True"}, false => {"False"}})).clicked() { self.properties.x_fixity = ! self.properties.x_fixity; };
+                                });
+                                inner_ui3.label("X Fixity");
+                            });
+                            inner_ui2.horizontal(|inner_ui3| {
+                                inner_ui3.checkbox(&mut self.properties.set_y_fixity, "");
+                                inner_ui3.add_enabled_ui(self.properties.set_y_fixity, |inner_ui4| {
+                                    if inner_ui4.add(egui::SelectableLabel::new(self.properties.y_fixity, match self.properties.y_fixity {true => {"True"}, false => {"False"}})).clicked() { self.properties.y_fixity = ! self.properties.y_fixity; };
+                                });
+                                inner_ui3.label("Y Fixity");
+                            });
+                            inner_ui2.horizontal(|inner_ui3| {
+                                inner_ui3.checkbox(&mut self.properties.set_rot_fixity, "");
+                                inner_ui3.add_enabled_ui(self.properties.set_rot_fixity, |inner_ui4| {
+                                    if inner_ui4.add(egui::SelectableLabel::new(self.properties.rot_fixity, match self.properties.rot_fixity {true => {"True"}, false => {"False"}})).clicked() { self.properties.rot_fixity = ! self.properties.rot_fixity; };
+                                });
+                                inner_ui3.label("Rotational Fixity");
+                            });
+                            inner_ui2.label("Material");
+                            inner_ui2.horizontal(|inner_ui3| {
+                                inner_ui3.checkbox(&mut self.properties.set_material, "");
+                                inner_ui3.add_enabled_ui(self.properties.set_material, |inner_ui4| {
+                                    // inner_ui4.add(egui::DragValue::new(&mut self.properties.material).clamp_range(0..=(self.materials.len()/self.material_size - 1)));
+                                    inner_ui4.add(egui::Slider::new(&mut self.properties.material, 0..=(self.materials.len()/self.material_size - 1) as i32));
+                                });
+                            });
+                            if inner_ui2.add_enabled(
+                                self.properties.set_material || self.properties.set_radius || self.properties.set_rot_fixity || self.properties.set_rot_force || self.properties.set_x_fixity || self.properties.set_x_force || self.properties.set_y_fixity || self.properties.set_y_force,
+                                egui::Button::new("Set Properties")).
+                                clicked() 
+                            {
+                                self.set_properties = !self.set_properties;
+                            }
+                        });
+                    });
                 });
             }
             if self.menu.setup_menu {
-                egui::Window::new("Setup").collapsible(false).show(ctx, |ui| {
+                egui::Window::new("Setup").collapsible(false).auto_sized().show(ctx, |ui| {
                     if !self.two_part { if ui.add(egui::Slider::new(&mut self.particles, self.workgroup_size..=self.workgroup_size*200).
                         text("Particles").
                         step_by(self.workgroup_size as f64)).changed() {
@@ -359,7 +427,7 @@ impl Settings {
                 });
             }
             if self.menu.physics_menu {
-                egui::Window::new("Physics").collapsible(false).show(ctx, |ui| {
+                egui::Window::new("Physics").collapsible(false).auto_sized().show(ctx, |ui| {
                     if ui.add(egui::Slider::new(&mut self.genPerFrame, 1..=213).
                         logarithmic(true).
                         text("Gen/Frame")).changed() {
@@ -426,7 +494,7 @@ impl Settings {
                 });
             }          
             if self.menu.walls_menu {
-                egui::Window::new("Walls").collapsible(false).show(ctx, |ui| {
+                egui::Window::new("Walls").collapsible(false).auto_sized().show(ctx, |ui| {
                     ui.checkbox(&mut self.maintain_ar, "Maintain Aspect Ratio");
                         let ar = self.hor_bound/self.vert_bound;
                         if ui.add(egui::Slider::new(&mut self.hor_bound, 0.0..=64.0).
@@ -446,7 +514,7 @@ impl Settings {
                 });
 
             }
-            if self.menu.materials_menu { egui::Window::new("Materials").collapsible(false).show(ctx, |ui| {
+            if self.menu.materials_menu { egui::Window::new("Materials").collapsible(false).auto_sized().show(ctx, |ui| {
                 let materials_count = self.materials.len()/self.material_size;
                 for i in 0..materials_count {
                     let mat_num = i+1;
@@ -461,7 +529,7 @@ impl Settings {
                 }
             });}
             if self.menu.save_load_menu {
-                egui::Window::new("Save/Load").collapsible(false).show(ctx, |ui| {
+                egui::Window::new("Save/Load").collapsible(false).auto_sized().show(ctx, |ui| {
                     if (ui.button("Load")).clicked() { self.load(); }
                     if (ui.button("Save")).clicked() { self.save(); }
                 });
@@ -541,6 +609,27 @@ impl Settings {
             self.vert_bound.to_bits() as i32,
             self.stiffness.to_bits() as i32,
             self.random_colors as i32,
+        ];
+    }
+
+    pub fn properties(&mut self) -> Vec<f32> {
+        return vec![
+            bytemuck::cast(self.properties.set_x_force as i32),
+            bytemuck::cast(self.properties.set_y_force as i32),
+            bytemuck::cast(self.properties.set_rot_force as i32),
+            bytemuck::cast(self.properties.set_material as i32),
+            bytemuck::cast(self.properties.set_x_fixity as i32),
+            bytemuck::cast(self.properties.set_y_fixity as i32),
+            bytemuck::cast(self.properties.set_rot_fixity as i32),
+            bytemuck::cast(self.properties.set_radius as i32),
+            self.properties.x_force,
+            self.properties.y_force,
+            self.properties.rot_force,
+            bytemuck::cast(self.properties.material as i32),
+            bytemuck::cast(self.properties.x_fixity as i32),
+            bytemuck::cast(self.properties.y_fixity as i32),
+            bytemuck::cast(self.properties.rot_fixity as i32),
+            self.properties.radius,
         ];
     }
 

@@ -1,12 +1,20 @@
 struct Input {
-    rad: f32,
-    y: i32,
-    delX: f32,
-    delY: f32,
-    ticks: i32,
-    temp1: f32,
-    temp2: f32,
-    temp3: f32,
+    set_x_force: i32,
+    set_y_force: i32,
+    set_rot_force: i32,
+    set_material: i32,
+    set_x_fixity: i32,
+    set_y_fixity: i32,
+    set_rot_fixity: i32,
+    set_radius: i32,
+    x_force: f32,
+    y_force: f32,
+    rot_force: f32,
+    material: i32,
+    x_fixity: i32,
+    y_fixity: i32,
+    rot_fixity: i32,
+    radius: f32,
 }
 
 struct Particle_Settings {
@@ -34,9 +42,6 @@ struct Forces {
 @group(1) @binding(6) var<storage, read_write> fixity: array<Particle_Settings>;
 @group(1) @binding(7) var<storage, read_write> forces: array<Forces>;
 @group(2) @binding(0) var<storage, read_write> radii: array<f32>;
-@group(3) @binding(0) var<storage, read_write> bonds: array<Bond>;
-@group(3) @binding(1) var<storage, read_write> bond_info: array<vec2<i32>>;
-@group(3) @binding(2) var<storage, read_write> contacts: array<Contact>;
 @group(3) @binding(3) var<storage, read_write> contact_pointers: array<i32>;
 @group(3) @binding(4) var<storage, read_write> material_pointers: array<i32>;
 @group(4) @binding(0) var<storage, read_write> selections: array<i32>;
@@ -46,10 +51,15 @@ struct Forces {
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let id: u32 = global_id.x;
-    
+
     if selections[id] == 1 {
-        if input.rad > 0.0 {
-            radii[id] = input.rad;
-        }
+        if input.set_radius == 1 { radii[id] = input.radius; } 
+        if input.set_x_force == 1 { forces[id].x = input.x_force; } 
+        if input.set_y_force == 1 { forces[id].y = input.y_force; } 
+        if input.set_rot_force == 1 { forces[id].rot = input.rot_force; } 
+        if input.set_x_fixity == 1 { fixity[id].x_vel = input.x_fixity; } 
+        if input.set_y_fixity == 1 { fixity[id].y_vel = input.y_fixity; } 
+        if input.set_rot_fixity == 1 { fixity[id].rot_vel = input.rot_fixity; } 
+        if input.set_material == 1 { material_pointers[id] = input.material; } 
     }
 }
