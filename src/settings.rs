@@ -14,6 +14,24 @@ pub struct Menu {
     pub physics_menu: bool,
     pub walls_menu: bool,
     pub save_load_menu: bool,
+    pub properties_menu: bool
+}
+
+pub struct Properties {
+    pub set_x_force: bool,
+    pub set_y_force: bool,
+    pub set_rot_force: bool,
+    pub set_material: bool,
+    pub set_x_fixity: bool,
+    pub set_y_fixity: bool,
+    pub set_rot_fixity: bool,
+    pub x_force: f32,
+    pub y_force: f32,
+    pub rot_force: f32,
+    pub material: i32,
+    pub x_fixity: i32,
+    pub y_fixity: i32,
+    pub rot_fixity: i32,
 }
 
 pub struct Settings {
@@ -66,7 +84,8 @@ pub struct Settings {
     pub current_file: std::path::PathBuf,
     pub load: bool,
     pub save: bool,
-    pub regen_bonds: bool
+    pub regen_bonds: bool,
+    pub properties: Properties
 }
 
 impl Settings {
@@ -130,7 +149,7 @@ impl Settings {
             physics_menu: false,
             walls_menu: false,
             save_load_menu: false,
-
+            properties_menu: false
         };
 
     let current_file = std::path::PathBuf::new();
@@ -185,7 +204,23 @@ impl Settings {
             current_file,
             load: false,
             save: false,
-            regen_bonds: false
+            regen_bonds: false,
+            properties: Properties {
+                set_x_force: false,
+                set_y_force: false,
+                set_rot_force: false,
+                set_material: false,
+                set_x_fixity: false,
+                set_y_fixity: false,
+                set_rot_fixity: false,
+                x_force: 0.0,
+                y_force: 0.0,
+                rot_force: 0.0,
+                material: 0,
+                x_fixity: 0,
+                y_fixity: 0,
+                rot_fixity: 0,
+            }
         }
     }
 
@@ -200,15 +235,16 @@ impl Settings {
             self.save();
         }
         if self.settings_menu {
-            egui::SidePanel::right("Settings Menu").show(ctx, |ui| {
-                ui.centered(|ui| {
-                    ui.heading("Menu");
-                    if ui.button("Setup").clicked() { self.menu.setup_menu = !self.menu.setup_menu; }
-                    if ui.button("Render Settings").clicked() { self.menu.render_settings = !self.menu.render_settings; }
-                    if ui.button("Materials").clicked() { self.menu.materials_menu = !self.menu.materials_menu; }
-                    if ui.button("Physics Settings").clicked() { self.menu.physics_menu = !self.menu.physics_menu; }
-                    if ui.button("Walls").clicked() { self.menu.walls_menu = !self.menu.walls_menu; }
-                    if ui.button("Save/Load").clicked() { self.menu.save_load_menu = !self.menu.save_load_menu; }
+            egui::TopBottomPanel::bottom("Settings Menu").show(ctx, |ui| {
+                ui.horizontal_centered(|ui| {
+                    // ui.heading("Menu");
+                    if ui.selectable_label(self.menu.setup_menu, "Setup").clicked() { self.menu.setup_menu = !self.menu.setup_menu; }
+                    if ui.selectable_label(self.menu.physics_menu, "Physics Settings").clicked() { self.menu.physics_menu = !self.menu.physics_menu; }
+                    if ui.selectable_label(self.menu.materials_menu, "Materials").clicked() { self.menu.materials_menu = !self.menu.materials_menu; }
+                    if ui.selectable_label(self.menu.properties_menu, "Properties").clicked() { self.menu.properties_menu = !self.menu.properties_menu; }
+                    if ui.selectable_label(self.menu.render_settings, "Render Settings").clicked() { self.menu.render_settings = !self.menu.render_settings; }
+                    if ui.selectable_label(self.menu.walls_menu, "Walls").clicked() { self.menu.walls_menu = !self.menu.walls_menu; }
+                    if ui.selectable_label(self.menu.save_load_menu, "Save/Load").clicked() { self.menu.save_load_menu = !self.menu.save_load_menu; }
                 });
             });
             if self.menu.render_settings {
@@ -221,15 +257,28 @@ impl Settings {
                     ui.checkbox(&mut self.color_code_rot, "Color Code Rotation");
                 });    
             }
+            if self.menu.properties_menu {
+                egui::Window::new("Properties").collapsible(false).show(ctx, |ui| {
+                    ui.label("Forces");
+                    // ui.heading("Forces");
+                    // ui.small("Forces");
+                    ui.checkbox(&mut self.properties.set_x_force, "X Force");
+                    ui.add(egui::Slider::new(&mut self.properties.x_force, -10.0..=10.0).text("X Force"));
+                    ui.checkbox(&mut self.properties.set_y_force, "Y Force");
+                    ui.add(egui::Slider::new(&mut self.properties.y_force, -10.0..=10.0).text("Y Force"));
+                    ui.checkbox(&mut self.properties.set_rot_force, "Rotational Force");
+                    ui.add(egui::Slider::new(&mut self.properties.rot_force, -10.0..=10.0).text("Rotational Force"));
+                });
+            }
             if self.menu.setup_menu {
-                egui::Window::new("Setup").show(ctx, |ui| {
+                egui::Window::new("Setup").collapsible(false).show(ctx, |ui| {
                     if !self.two_part { if ui.add(egui::Slider::new(&mut self.particles, self.workgroup_size..=self.workgroup_size*200).
                         text("Particles").
                         step_by(self.workgroup_size as f64)).changed() {
                             self.workgroups = self.particles/self.workgroup_size;
                             reset = true;
                         };}
-                        
+
                         egui::ComboBox::from_label("Structures")
                             .selected_text(format!("{:?}", self.structure))
                             .show_ui(ui, |ui| {
@@ -310,7 +359,7 @@ impl Settings {
                 });
             }
             if self.menu.physics_menu {
-                egui::Window::new("Physics").show(ctx, |ui| {
+                egui::Window::new("Physics").collapsible(false).show(ctx, |ui| {
                     if ui.add(egui::Slider::new(&mut self.genPerFrame, 1..=213).
                         logarithmic(true).
                         text("Gen/Frame")).changed() {
