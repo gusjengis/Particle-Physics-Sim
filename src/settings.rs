@@ -14,7 +14,8 @@ pub struct Menu {
     pub physics_menu: bool,
     pub walls_menu: bool,
     pub save_load_menu: bool,
-    pub properties_menu: bool
+    pub properties_menu: bool,
+    pub data_menu: bool,
 }
 
 pub struct Properties {
@@ -34,6 +35,49 @@ pub struct Properties {
     pub y_fixity: bool,
     pub rot_fixity: bool,
     pub radius: f32,
+}
+
+pub struct Data {
+    pub x_pos_data: Vec<[f64; 2]>,
+    pub y_pos_data: Vec<[f64; 2]>,
+    pub x_vel_data: Vec<[f64; 2]>,
+    pub y_vel_data: Vec<[f64; 2]>,
+    pub rot_data: Vec<[f64; 2]>,
+    pub rot_vel_data: Vec<[f64; 2]>,
+    pub data1: Vec<[f64; 2]>,
+    pub data2: Vec<[f64; 2]>,
+    pub data3: Vec<[f64; 2]>,
+    pub data4: Vec<[f64; 2]>,
+}
+
+impl Data {
+    pub fn new() -> Self {
+        return Data {
+            x_pos_data: Vec::new(),
+            y_pos_data: Vec::new(),
+            x_vel_data: Vec::new(),
+            y_vel_data: Vec::new(),
+            rot_data: Vec::new(),
+            rot_vel_data: Vec::new(),
+            data1: Vec::new(),
+            data2: Vec::new(),
+            data3: Vec::new(),
+            data4: Vec::new(),
+        };
+    }
+
+    pub fn push(&mut self, timestamp: f64, datum: [f64; 10]) {
+        self.x_pos_data.push([timestamp, datum[0]]);
+        self.y_pos_data.push([timestamp, datum[1]]);
+        self.x_vel_data.push([timestamp, datum[2]]);
+        self.y_vel_data.push([timestamp, datum[3]]);
+        self.rot_data.push([timestamp, datum[4]]);
+        self.rot_vel_data.push([timestamp, datum[5]]);
+        self.data1.push([timestamp, datum[6]]);
+        self.data2.push([timestamp, datum[7]]);
+        self.data3.push([timestamp, datum[8]]);
+        self.data4.push([timestamp, datum[9]]);
+    }
 }
 
 pub struct Settings {
@@ -89,6 +133,11 @@ pub struct Settings {
     pub regen_bonds: bool,
     pub properties: Properties,
     pub set_properties: bool,
+    pub data: Data,
+    pub auto_size_plot: bool,
+    pub plotted_prop: Property,
+    pub damping: f32,
+    pub bond_shear_limit: f32
 }
 
 impl Settings {
@@ -96,7 +145,7 @@ impl Settings {
         let genPerFrame = 1;
         let particles = 256;
         let workgroup_size = 256;
-        let workgroups = particles/workgroup_size;
+        let workgroups = (particles as f32/workgroup_size as f32).ceil() as usize;
         //particle settings
         let max_radius = 0.1/3.2;
         let variable_rad = true;
@@ -152,10 +201,11 @@ impl Settings {
             physics_menu: false,
             walls_menu: false,
             save_load_menu: false,
-            properties_menu: false
+            properties_menu: false,
+            data_menu: false,
         };
 
-    let current_file = std::path::PathBuf::new();
+        let current_file = std::path::PathBuf::new();
 
         Self {
             genPerFrame,
@@ -226,13 +276,18 @@ impl Settings {
                 rot_fixity: false,
                 radius: 0.0,
             },
-            set_properties: false
+            set_properties: false,
+            data: Data::new(),
+            auto_size_plot: true,
+            plotted_prop: Property::Y_Position,
+            damping: 0.2,
+            bond_shear_limit: 0.5
         }
     }
 
     pub fn set_particles(&mut self, particles: usize) {
         self.particles = particles;
-        self.workgroups = particles/self.workgroup_size;
+        self.workgroups = (self.particles as f32/self.workgroup_size as f32).ceil() as usize;
     }
 
     pub fn ui(&mut self, ctx: &Context) -> bool {
@@ -250,6 +305,7 @@ impl Settings {
                     if ui.selectable_label(self.menu.properties_menu, "Properties").clicked() { self.menu.properties_menu = !self.menu.properties_menu; }
                     if ui.selectable_label(self.menu.render_settings, "Render Settings").clicked() { self.menu.render_settings = !self.menu.render_settings; }
                     if ui.selectable_label(self.menu.walls_menu, "Walls").clicked() { self.menu.walls_menu = !self.menu.walls_menu; }
+                    if ui.selectable_label(self.menu.data_menu, "Data").clicked() { self.menu.data_menu = !self.menu.data_menu; }
                     if ui.selectable_label(self.menu.save_load_menu, "Save/Load").clicked() { self.menu.save_load_menu = !self.menu.save_load_menu; }
                 });
             });
@@ -340,10 +396,10 @@ impl Settings {
             }
             if self.menu.setup_menu {
                 egui::Window::new("Setup").collapsible(false).auto_sized().show(ctx, |ui| {
-                    if !self.two_part { if ui.add(egui::Slider::new(&mut self.particles, self.workgroup_size..=self.workgroup_size*200).
+                    if !self.two_part { if ui.add(egui::Slider::new(&mut self.particles, 4..=self.workgroup_size*200).
                         text("Particles").
-                        step_by(self.workgroup_size as f64)).changed() {
-                            self.workgroups = self.particles/self.workgroup_size;
+                        step_by(1.0)).changed() {
+                            self.workgroups = (self.particles as f32/self.workgroup_size as f32).ceil() as usize;
                             reset = true;
                         };}
 
@@ -362,7 +418,7 @@ impl Settings {
                             });
                         if !self.two_part { if self.structure == Structure::Grid {
                             if ui.add(egui::Slider::new(&mut self.grid_width, 1.0..=self.particles as f32).
-                            text("Grid Width")
+                            text("Grid Width").step_by(0.01)
                             .logarithmic(true)).changed() {
                                 reset = true;
                             };
@@ -424,15 +480,11 @@ impl Settings {
                         if ui.button("Regenerate Bonds").clicked() {
                             self.regen_bonds = true;                            
                         }
-                });
-            }
-            if self.menu.physics_menu {
-                egui::Window::new("Physics").collapsible(false).auto_sized().show(ctx, |ui| {
-                    if ui.add(egui::Slider::new(&mut self.genPerFrame, 1..=213).
-                        logarithmic(true).
-                        text("Gen/Frame")).changed() {
-                            self.workgroups = self.particles/self.workgroup_size;
-                        };
+                    });
+                }
+                if self.menu.physics_menu {
+                    egui::Window::new("Physics").collapsible(false).auto_sized().show(ctx, |ui| {
+                        ui.add(egui::Slider::new(&mut self.genPerFrame, 1..=213).logarithmic(true).text("Gen/Frame"));
                     if ui.checkbox(&mut self.gravity, "Gravity").changed() {
                         self.changed_collision_settings = true;
                     }
@@ -441,11 +493,15 @@ impl Settings {
                             self.changed_collision_settings = true;
                         }
                         if ui.add(egui::Slider::new(&mut self.gravity_acceleration, -100.0..=100.0).step_by(0.1).
-                            text("G Force")).changed() {
-                                // println!("{}", self.gravity_acceleration);
-                                self.changed_collision_settings = true;
-                            };
+                        text("G Force")).changed() {
+                            // println!("{}", self.gravity_acceleration);
+                            self.changed_collision_settings = true;
+                        };
                     }
+                    // if ui.add(egui::Slider::new(&mut self.damping, 0.0..=10.0).
+                    // text("Damping")).changed() {
+                    //     self.changed_collision_settings = true;
+                    // };
                     let mut changed_bonds = false;
                     egui::ComboBox::from_label("Bonds")
                     .selected_text(format!("{:?}", self.bondenum))
@@ -465,21 +521,25 @@ impl Settings {
                         }
                     }
                     // if ui.checkbox(&mut self.bonds, "Bonds").changed() {
-                    //     self.changed_collision_settings = true;
-                    // }
+                        //     self.changed_collision_settings = true;
+                        // }
                     if self.bonds != 0 {
-                        if ui.add(egui::Slider::new(&mut self.stiffness, 0.01..=10.0).step_by(0.01).
+                        if ui.add(egui::Slider::new(&mut self.stiffness, 0.01..=100.0).step_by(0.01).
                         text("Stiffness")).changed() {
                             self.changed_collision_settings = true;
                         };
+                        // if ui.add(egui::Slider::new(&mut self.bond_shear_limit, 0.0..=10.0).
+                        // text("Bond Shear Limit")).changed() {
+                        //     self.changed_collision_settings = true;
+                        // };
                         if ui.checkbox(&mut self.bond_tearing, "Bond Tearing").changed() {
                             self.changed_collision_settings = true;
                         }
                         if self.bond_tearing {
                             if ui.add(egui::Slider::new(&mut self.bond_force_limit, 0.0..=5.0).step_by(0.0001).
                             text("Tear Limit")).changed() {
-                                        self.changed_collision_settings = true;
-                                    };
+                                self.changed_collision_settings = true;
+                            };
                         }
                     }
                     if ui.checkbox(&mut self.collisions, "Collisions").changed() {
@@ -487,9 +547,9 @@ impl Settings {
                     }
                     if self.collisions {
                         if ui.add(egui::Slider::new(&mut self.friction_coefficient, 0.0..=1.0).
-                            text("Friction Coef.")).changed() {
-                                self.changed_collision_settings = true;
-                            };
+                        text("Friction Coef.")).changed() {
+                            self.changed_collision_settings = true;
+                        };
                     }
                 });
             }          
@@ -528,6 +588,41 @@ impl Settings {
                     });
                 }
             });}
+            if self.menu.data_menu {
+                egui::Window::new("Data").collapsible(false).resizable(true).show(ctx, |ui| {
+                    let mut plot = egui::plot::Plot::new("physics plot").auto_bounds_x().auto_bounds_y().clamp_grid(true);
+                    let button = egui::Button::new("Reset View");
+                    egui::ComboBox::from_label("Property")
+                            .selected_text(format!("{:?}", self.plotted_prop))
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut self.plotted_prop, Property::X_Position, "X Position");
+                                ui.selectable_value(&mut self.plotted_prop, Property::Y_Position, "Y Position");
+                                ui.selectable_value(&mut self.plotted_prop, Property::X_Velocity, "X Velocity");
+                                ui.selectable_value(&mut self.plotted_prop, Property::Y_Velocity, "Y Velocity");
+                                ui.selectable_value(&mut self.plotted_prop, Property::Rotation, "Rotation");
+                                ui.selectable_value(&mut self.plotted_prop, Property::Rotational_Velocity, "Rotational Velocity");
+                                ui.selectable_value(&mut self.plotted_prop, Property::Data_1, "Data 1");
+                                ui.selectable_value(&mut self.plotted_prop, Property::Data_2, "Data 2");
+                                ui.selectable_value(&mut self.plotted_prop, Property::Data_3, "Data 3");
+                                ui.selectable_value(&mut self.plotted_prop, Property::Data_4, "Data 4");
+                            });
+                    if ui.add(button).clicked() { plot = plot.reset() }
+                    plot.show(ui, |plot_ui| {
+                        match self.plotted_prop {
+                            Property::X_Position => {plot_ui.line(egui::plot::Line::new(egui::plot::PlotPoints::from(self.data.x_pos_data.to_owned())));},
+                            Property::Y_Position => {plot_ui.line(egui::plot::Line::new(egui::plot::PlotPoints::from(self.data.y_pos_data.to_owned())));},
+                            Property::X_Velocity => {plot_ui.line(egui::plot::Line::new(egui::plot::PlotPoints::from(self.data.x_vel_data.to_owned())));},
+                            Property::Y_Velocity => {plot_ui.line(egui::plot::Line::new(egui::plot::PlotPoints::from(self.data.y_vel_data.to_owned())));},
+                            Property::Rotation => {plot_ui.line(egui::plot::Line::new(egui::plot::PlotPoints::from(self.data.rot_data.to_owned())));},
+                            Property::Rotational_Velocity => {plot_ui.line(egui::plot::Line::new(egui::plot::PlotPoints::from(self.data.rot_vel_data.to_owned())));},
+                            Property::Data_1 => {plot_ui.line(egui::plot::Line::new(egui::plot::PlotPoints::from(self.data.data1.to_owned())));},
+                            Property::Data_2 => {plot_ui.line(egui::plot::Line::new(egui::plot::PlotPoints::from(self.data.data2.to_owned())));},
+                            Property::Data_3 => {plot_ui.line(egui::plot::Line::new(egui::plot::PlotPoints::from(self.data.data3.to_owned())));},
+                            Property::Data_4 => {plot_ui.line(egui::plot::Line::new(egui::plot::PlotPoints::from(self.data.data4.to_owned())));},
+                        }
+                    });
+                });
+            }
             if self.menu.save_load_menu {
                 egui::Window::new("Save/Load").collapsible(false).auto_sized().show(ctx, |ui| {
                     if (ui.button("Load")).clicked() { self.load(); }
@@ -594,7 +689,9 @@ impl Settings {
             self.gravity_acceleration,
             self.stiffness,
             bytemuck::cast(self.bond_tearing as i32),
-            self.bond_force_limit
+            self.bond_force_limit,
+            self.damping,
+            self.bond_shear_limit,
         ];
     }
 
@@ -682,4 +779,18 @@ pub enum BondType {
     Normal_Bonds,
     Linear_Contact_Bond,
     Parallel_Linear_Contact_Bond,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Property {
+    X_Position,
+    Y_Position,
+    X_Velocity,
+    Y_Velocity,
+    Rotation,
+    Rotational_Velocity,
+    Data_1,
+    Data_2,
+    Data_3,
+    Data_4,
 }

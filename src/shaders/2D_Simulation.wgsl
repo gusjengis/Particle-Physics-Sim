@@ -40,7 +40,9 @@ struct Settings {
     gravity_acc: f32,
     stiffness: f32,
     bonds_tear: i32,
-    bond_force_limit: f32
+    bond_force_limit: f32,
+    damping: f32,
+    bond_shear_lim: f32
 }
 
 struct Material {
@@ -68,7 +70,8 @@ struct Material {
 @group(3) @binding(3) var<storage, read_write> contact_pointers: array<i32>;
 @group(3) @binding(4) var<storage, read_write> material_pointers: array<i32>;
 @group(4) @binding(0) var<uniform> settings: Settings;
-@group(5) @binding(0) var<storage, read_write> materials: array<Material>;
+@group(5) @binding(0) var<storage, read_write> materials: array<Material>; 
+@group(6) @binding(0) var<storage, read_write> data: array<f32>; 
 
 
 const deltaTime: f32 = 0.0000390625;
@@ -76,17 +79,21 @@ const PI = 3.141592653589793238;
 
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    // data[id*4u] = 1.0;
+    // data[id*4u+1u] = 2.0;
+    // data[id*4u+2u] = 3.0;
+    // data[id*4u+3u] = 4.0;
 
     let id: u32 = global_id.x;
     let mat_id = material_pointers[id];
-
-    let damping: f32 = 0.2; // Damping factor, can be adjusted
+    // let damping: f32 = 0.2; // Damping factor, can be adjusted
 
     var net_force = vec2(0.0, 0.0);
     var net_moment = 0.0;
+    // var stress_tensor = vec3(0.0, 0.0, 0.0);
 
-    //Bonds
-    let bond_shear_lim = 0.5;
+    // Bonds
+    // let bond_shear_lim = 0.5;
     var bonded_particles = array<i32, 6u>(-1,-1,-1,-1,-1,-1);
     if settings.bonds != 0 {
         let start = bond_info[id].x;
@@ -103,16 +110,15 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 if settings.bonds == 1 || settings.bonds == 2 || settings.bonds == 3 {
                     let displacement: f32 = -distance(i32(id), bond_id);
                     let spring_force: vec2<f32> = settings.stiffness * displacement * normalize(positions[bond_id] - positions[id]);
-                    var force = (spring_force) * damping;
+                    var force = (spring_force) * settings.damping;
                     net_force -= force;
-                    if settings.bonds_tear == 1 && displacement > settings.bond_force_limit {
+                    if settings.bonds_tear == 1 && displacement < -settings.bond_force_limit {
                         bonds[i].index = -bonds[i].index;
                     }
                     if settings.bonds == 3 {
                         let ideal_rot = rot[bond_id];
                         let rot_disp = rot[id] - rot[bond_id];
                         net_moment -= (radii[id])*rot_disp/10000.0;
-
                     }
                 } else {
                     // Linear Bonds, w/ shear resistance 
@@ -136,12 +142,12 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
     }
 
-    //OG O(n^2) Collisions
+    // OG O(n^2) Collisions
     if settings.collisions == 1 {
         let max_contacts = 8u;
         var collisions = array<i32, 8u>();
         var count = 0u;
-        //make a list of particles that we're colliding with
+        // make a list of particles that we're colliding with
         for(var i = 0u; i<arrayLength(&radii); i++){
             if i != id {
                 if length(positions[i] - positions[id]) < (radii[i] + radii[id]){
@@ -153,7 +159,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 } 
             }
         }
-        //delete contacts that don't exist
+        // delete contacts that don't exist
         for(var j = id*max_contacts; j<(id+1u)*max_contacts; j++){
             if contacts[j].b == -1 {
                 continue;
@@ -167,7 +173,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 }
             }
             if !found_contact && contacts[j].bonded == -1 {
-                //delete
+                // delete
                 contacts[j].a = -1;
                 contacts[j].b = -1;
                 for(var k = u32(other_particle)*max_contacts; k<(u32(other_particle)+1u)*max_contacts; k++) {
@@ -179,7 +185,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             }
         }   
 
-        //create new contacts
+        // create new contacts
         for(var i = 0u; i<count; i++){
             var existing_index = -1;
             var empty_index = -1;
@@ -252,17 +258,31 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             var moment = true;
             if bonded && settings.bonds == 2 || settings.bonds == 3 {
                 normal_force = 0.0;
-                friction_limit = bond_shear_lim;
+                friction_limit = settings.bond_shear_lim;
                 moment = false;
             }
             contacts[i].tangent_force = contacts[i].tangent_force + rel_tangent*shear_stiffness;//clamp(contacts[i].tangent_force + rel_tangent*shear_stiffness, -friction_limit, friction_limit);
-            net_force += damping * (normal*normal_force + tangent*contacts[i].tangent_force);
+            net_force += settings.damping * (normal*normal_force + tangent*contacts[i].tangent_force);
             // if moment {
             net_moment -= (radii[a])*contacts[i].tangent_force;// - overlap/2.0
             // }
+            // stress_tensor += stress_tensor(id, net_force, normal*radii[a]);
         }
+        // data[id*4] = stress_tensor.x;
+        // data[id*4+1] = stress_tensor.y;
+        // data[id*4+2] = stress_tensor.z;
     }
     
+    store_forces(id, mat_id, net_force, net_moment);
+    
+    walls(id);
+}
+
+fn distance(a: i32, b: i32) -> f32 {
+    return  length(positions[a] - positions[b]) - (radii[a] + radii[b]);
+}
+
+fn store_forces(id: u32, mat_id: i32, net_force: vec2<f32>, net_moment: f32) {
     // Apply sum of forces and gravity to velocities
     var density = 1.0;
     if mat_id != -1 {
@@ -279,14 +299,17 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let gravity = 9.81 * settings.gravity_acc * deltaTime;
         velocities_buf[id] += vec2(0.0, -gravity);
     }
-    /// BS Walls
+}
+
+fn walls(id: u32) {
+    // BS Walls
     let pos = positions[id];
     let rad = radii[id];
     let elasticity = 0.5;
     let anti_stick_coating = 0.01;
     let yH = settings.vert_bound;
     let xW = settings.hor_bound;
-
+    
     if pos.x+rad > xW {
         velocities_buf[id] = vec2(-velocities_buf[id].x, velocities_buf[id].y)*elasticity;
         rot_vel_buf[id] = rot_vel_buf[id]*0.9;
@@ -307,6 +330,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
 }
 
-fn distance(a: i32, b: i32) -> f32 {
-    return  length(positions[a] - positions[b]) - (radii[a] + radii[b]);
-}
+// fn stress_tensor(id: u32, force: vec2<f32>, delta: vec2<f32>) -> vec3<f32> {
+//     var tensor = vec3(0.0, 0.0, 0.0);
+//     let 
+    
+// }

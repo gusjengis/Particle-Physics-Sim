@@ -40,7 +40,9 @@ pub struct State {
     pub bonds: Vec<i32>,
     pub bond_info: Vec<i32>,
     pub material_pointers: Vec<i32>,
-    pub flatbuffer: Vec<u8>,
+    pub selections: Vec<i32>,
+    pub data: Vec<f32>,
+    pub flatbuffer: Vec<u8>
 }
 
 impl State {
@@ -58,6 +60,8 @@ impl State {
         let mut bonds = vec![-1; 1];
         let mut bond_info = vec![-1; 1];
         let mut material_pointers = vec![0; p_count];
+        let mut selections = vec![0; p_count];
+        let mut data = vec![0.0; p_count * 4];
         let flatbuffer = vec![0 as u8; 1];
 
         // Setup initial state, Fill with random values
@@ -118,6 +122,8 @@ impl State {
             bonds,
             bond_info,
             material_pointers,
+            selections,
+            data,
             flatbuffer,
         };
 
@@ -232,7 +238,6 @@ impl State {
     }
 
     pub fn save(&mut self, config: &mut WGPUConfig) {
-
         let mut builder = flatbuffers::FlatBufferBuilder::new();
 
         let pos = builder.create_vector(&self.pos);
@@ -298,6 +303,34 @@ impl State {
         self.material_pointers = State::i32_vec_from_vector(state.material_pointers());
     }
 
+    pub fn get_datum(&self, prop: &crate::settings::Property) -> Option<[f64;10]> {
+        let mut sums = [0.0; 10];
+        let mut count = 0;
+        for i in 0..self.selections.len() {
+            if self.selections[i] == 1 {
+                count += 1;
+                sums[0] += self.pos[i*2]   as f64;
+                sums[1] += self.pos[i*2+1] as f64;
+                sums[2] += self.vel[i*2]   as f64;
+                sums[3] += self.vel[i*2+1] as f64;
+                sums[4] += self.rot[i]     as f64;
+                sums[5] += self.rot_vel[i] as f64;
+                sums[6] += self.data[i*4] as f64;
+                sums[7] += self.data[i*4+1] as f64;
+                sums[8] += self.data[i*4+2] as f64;
+                sums[9] += self.data[i*4+3] as f64;
+            }
+        }
+
+        if count == 0 {
+            return None;
+        }
+        for i in 0..sums.len() {
+            sums[i] /= count as f64;
+        }
+        return Some(sums);
+    }
+
     fn f32_vec_from_vector(vector: Option<flatbuffers::Vector<f32>>) -> Vec<f32> {
         let bytes = vector.unwrap().bytes();
         let f32_slice: &[f32] = unsafe {
@@ -334,6 +367,8 @@ impl State {
         State::update_i32(config, &mut self.bonds, &mut buffers.contact_buffers.buffers[0]);
         State::update_i32(config, &mut self.bond_info, &mut buffers.contact_buffers.buffers[1]);
         State::update_i32(config, &mut self.material_pointers, &mut buffers.contact_buffers.buffers[4]);
+        State::update_i32(config, &mut self.selections, &mut buffers.selections.buffer);
+        State::update_f32(config, &mut self.data, &mut buffers.data_buffer.buffer);
 
     }
 

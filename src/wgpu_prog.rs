@@ -390,6 +390,7 @@ pub struct BufferContainer {
     pub drag_input: Uniform,
     pub set_prop_input: Uniform,
     pub selections: BufferUniform,
+    pub data_buffer: BufferUniform,
     pub material_buffer: BufferUniform,
 }
 
@@ -407,6 +408,7 @@ impl BufferContainer {
         drag_input: Uniform,
         set_prop_input: Uniform,
         selections: BufferUniform,
+        data_buffer: BufferUniform,
         material_buffer: BufferUniform,
         ) -> Self {
         
@@ -423,6 +425,7 @@ impl BufferContainer {
             drag_input,
             set_prop_input,
             selections,
+            data_buffer,
             material_buffer,
         }
 
@@ -450,7 +453,7 @@ pub struct WGPUComputeProg {
 
 impl WGPUComputeProg {
     pub fn new(config: &mut WGPUConfig, dimensions: (u32, u32)) -> Self {
-        // Create empty arrays for particle data
+        // Create empty arrays for particle data_buffer
 
         let state = State::new(config);
 
@@ -458,7 +461,6 @@ impl WGPUComputeProg {
         let mut contacts = vec![bytemuck::cast::<i32, f32>(-1); 4*config.prog_settings.max_contacts*p_count];
         let mut contact_pointers = vec![-1; config.prog_settings.max_contacts*p_count];
         let mut cilck_info = vec![0; 4];
-        let mut selected = vec![0; p_count];
 
         // Convert arrays to GPU buffers
         let pos_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&state.pos), "Position Buffer".to_string(), 0);
@@ -482,7 +484,7 @@ impl WGPUComputeProg {
             ], "Contact Buffers".to_string() );
         // let contact_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&contacts), "Contact Buffer".to_string(), 0);
         // let bond_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&bonds), "Bond Buffer".to_string(), 0);
-        let bond_info_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&state.bond_info), "Bond Info Buffer".to_string(), 0);
+        // let bond_info_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&state.bond_info), "Bond Info Buffer".to_string(), 0);
         let material_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&config.prog_settings.materials), "Materials".to_string(), 0);
         let collision_settings = Uniform::new(&config.device, bytemuck::cast_slice(&config.prog_settings.collison_settings()), "Collision Settings".to_string(), 0);
         
@@ -493,9 +495,10 @@ impl WGPUComputeProg {
         let release_input = Uniform::new(&config.device, bytemuck::cast_slice(&[0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32]), "Release Data".to_string(), 0);
         let drag_input = Uniform::new(&config.device, bytemuck::cast_slice(&[0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32]), "Drag Data".to_string(), 0);
         let set_prop_input = Uniform::new(&config.device, bytemuck::cast_slice(&[0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32, 0.0 as f32]), "Drag Data".to_string(), 0);
-        let selections = BufferUniform::new(&config.device, bytemuck::cast_slice(&selected), "Selection Buffer".to_string(), 0);
+        let selections = BufferUniform::new(&config.device, bytemuck::cast_slice(&state.selections), "Selection Buffer".to_string(), 0);
+        let data_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&state.data), "Selection Buffer".to_string(), 0);
         let hit_tex = Texture::new_from_dimensions(&config, dimensions, 0, wgpu::TextureFormat::Bgra8Unorm);
-
+        
         let buffers = BufferContainer::new(
             pos_buffer,
             mov_buffers,
@@ -509,6 +512,7 @@ impl WGPUComputeProg {
             drag_input,
             set_prop_input,
             selections,
+            data_buffer,
             material_buffer
         );
         // let col_buffer = BufferUniform::new(&config.device, bytemuck::cast_slice(&col_sec), "Collision Buffer".to_string(), 0);
@@ -570,7 +574,7 @@ impl WGPUComputeProg {
 
         let compute_pipeline_layout2 = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Collision compute"),
-            bind_group_layouts: &[&buffers.pos_buffer.bind_group_layout, &buffers.mov_buffers.bind_group_layout, &buffers.radii_buffer.bind_group_layout, &buffers.contact_buffers.bind_group_layout, &buffers.collision_settings.bind_group_layout, &buffers.material_buffer.bind_group_layout],
+            bind_group_layouts: &[&buffers.pos_buffer.bind_group_layout, &buffers.mov_buffers.bind_group_layout, &buffers.radii_buffer.bind_group_layout, &buffers.contact_buffers.bind_group_layout, &buffers.collision_settings.bind_group_layout, &buffers.material_buffer.bind_group_layout, &buffers.data_buffer.bind_group_layout],
             push_constant_ranges: &[]
         });
         
@@ -768,6 +772,7 @@ impl WGPUComputeProg {
 
     pub fn restore(&mut self, config: &mut WGPUConfig) {
         self.state.load();
+        println!("{}", self.state.p_count);
         config.prog_settings.set_particles(self.state.p_count);
         self.buffers.pos_buffer.updateUniform(&config.device, self.state.pos.as_bytes());
         self.buffers.radii_buffer.updateUniform(&config.device, self.state.radii.as_bytes());
@@ -806,7 +811,6 @@ impl WGPUComputeProg {
             compute_pass.set_bind_group(3, &self.buffers.click_buffer.bind_group, &[]);   
             compute_pass.set_bind_group(4, &self.buffers.mov_buffers.bind_group, &[]);  
 
-
             compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
             
         }
@@ -829,7 +833,6 @@ impl WGPUComputeProg {
             compute_pass.set_bind_group(2, &self.hit_tex.diffuse_bind_group, &[]);   
             compute_pass.set_bind_group(3, &self.buffers.click_buffer.bind_group, &[]);   
             compute_pass.set_bind_group(4, &self.buffers.mov_buffers.bind_group, &[]);  
-
 
             compute_pass.dispatch_workgroups(((dimensions.0*dimensions.1) as f32/256.0).ceil() as u32, 1, 1);
             
@@ -952,14 +955,13 @@ impl WGPUComputeProg {
 
     pub fn compute(&mut self, config: &mut WGPUConfig){
         
-        // LAWS OF MOTION
 
         let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
         let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
 
         for i in 0..config.prog_settings.genPerFrame {
-
+            // LAWS OF MOTION
             {
                 let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
 
@@ -975,13 +977,7 @@ impl WGPUComputeProg {
 
             }
 
-            // config.queue.submit(Some(encoder.finish()));
-
-            // SIMULATION
-
-            // let mut encoder = config.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-
-            // let mut compute_pass_descriptor = wgpu::ComputePassDescriptor::default();
+            // SIMULATION/COLLISIONS/BONDS
 
             {
                 let mut compute_pass = encoder.begin_compute_pass(&compute_pass_descriptor);
@@ -994,6 +990,7 @@ impl WGPUComputeProg {
                 compute_pass.set_bind_group(3, &self.buffers.contact_buffers.bind_group, &[]);         
                 compute_pass.set_bind_group(4, &self.buffers.collision_settings.bind_group, &[]);  
                 compute_pass.set_bind_group(5, &self.buffers.material_buffer.bind_group, &[]);
+                compute_pass.set_bind_group(6, &self.buffers.data_buffer.bind_group, &[]);
 
                 compute_pass.dispatch_workgroups(config.prog_settings.workgroups as u32, 1, 1);
 

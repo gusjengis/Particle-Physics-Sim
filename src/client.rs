@@ -1,3 +1,4 @@
+use crate::settings::Data;
 use crate::wgpu_prog::WGPUComputeProg;
 use crate::wgpu_structs::DepthBuffer;
 use crate::wgpu_structs::Texture;
@@ -59,7 +60,8 @@ pub struct Client {
     N: bool,
     init: bool,
     pub platform: Platform,
-    egui_rpass: RenderPass
+    egui_rpass: RenderPass,
+    data_length_backup: usize,
 }
 
 impl Client {
@@ -154,6 +156,7 @@ impl Client {
             init,
             platform,
             egui_rpass,
+            data_length_backup: 1
         };
         client.resize(client.canvas.size);
         event_loop.run(move |event, _, control_flow| {
@@ -341,6 +344,7 @@ impl Client {
                     } => {
                             self.wgpu_prog.shader_prog.update_state(&mut self.wgpu_config);
                             self.wgpu_prog.shader_prog.state.save(&mut self.wgpu_config);   
+                            // self.data_length_backup = self.wgpu_config.prog_settings.data.len();
                             return true;
                         },
     
@@ -422,6 +426,7 @@ impl Client {
                             self.reset();
                         } else {
                             self.wgpu_prog.shader_prog.restore(&mut self.wgpu_config);
+                            self.wgpu_config.prog_settings.data = Data::new();//(self.wgpu_config.prog_settings.data[0..self.data_length_backup]).to_vec();
 
                         }
                         return true;
@@ -613,6 +618,7 @@ impl Client {
         self.wgpu_prog.shader_prog = WGPUComputeProg::new(&mut self.wgpu_config, (self.canvas.size.width as u32, self.canvas.size.height as u32));
         self.toggle = false;
         self.generation = 0;
+        self.wgpu_config.prog_settings.data = Data::new();
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -879,6 +885,16 @@ impl Client {
     }
 
     let now = Local::now();
+    let sim_time_passed = 0.0000390625*self.generation as f32;    
+
+    if self.toggle {
+        self.wgpu_prog.shader_prog.update_state(&mut self.wgpu_config);
+        match self.wgpu_prog.shader_prog.state.get_datum(&self.wgpu_config.prog_settings.plotted_prop) {
+            Some(datum) => {self.wgpu_config.prog_settings.data.push(sim_time_passed as f64, datum);},
+            None => {self.wgpu_config.prog_settings.data = Data::new();}
+        }
+}
+
     if(self.log_framerate){
         
     let time_since = (now.timestamp_millis() - self.bench_start_time.timestamp_millis()) as f32/1000.0;
@@ -892,7 +908,6 @@ impl Client {
         }
         let mut time_passed = (Local::now().timestamp_millis() - self.start_time.timestamp_millis()) as f32/1000.0;
         if !self.toggle { time_passed = 0.0; }
-        let sim_time_passed = 0.0000390625*self.generation as f32;
         let genPerSec = (self.generation - self.prevGen) as f32/time_since;
                 let sim_speed = 100.0*genPerSec*0.0000390625;
                 let twsp = 100.0*20.0/sim_speed;
@@ -906,7 +921,6 @@ impl Client {
                 self.prevGen = self.generation;
                 self.bench_start_time = Local::now();
                 
-                // self.wgpu_prog.shader_prog.update_state(&mut self.wgpu_config);
                 // self.wgpu_prog.shader_prog.state.print_state();
             }
             

@@ -89,7 +89,7 @@ pub fn grid(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
     let MAX_BONDS = settings.max_bonds;
     let mut bonds = vec![-1; p_count*MAX_BONDS*3];
     let mut bond_info = vec![-1; p_count*2];
-    let mut found_bonds = true;
+    let mut found_bonds = false;
     for i in 0..p_count {
         let mut col_num = 0;
         for j in 0..p_count {
@@ -156,7 +156,6 @@ pub fn grid(settings: &mut Settings, pos: &mut Vec<f32>, vel: &mut Vec<f32>, rot
     if found_bonds {
         bonds = (bonds).into_iter().filter(|num| *num != -1).collect();
     }
-
 
     for i in 0..radii.len() {
         radii[i] *= distance/max_rad;// * 1.99;
