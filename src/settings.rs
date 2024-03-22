@@ -159,7 +159,7 @@ impl Settings {
         let min_v_velocity = 0.0;
         let structure = Structure::Grid;
         let grid_width = 32.0;
-        let settings_menu = false;
+        let settings_menu = true;
         let maintain_ar = true;
         let hor_bound = 1.333;
         let vert_bound = 1.0;
@@ -396,7 +396,7 @@ impl Settings {
             }
             if self.menu.setup_menu {
                 egui::Window::new("Setup").collapsible(false).auto_sized().show(ctx, |ui| {
-                    if !self.two_part { if ui.add(egui::Slider::new(&mut self.particles, 4..=self.workgroup_size*200).
+                    if !self.two_part { if ui.add(egui::Slider::new(&mut self.particles, 1..=self.workgroup_size*200).
                         text("Particles").
                         step_by(1.0)).changed() {
                             self.workgroups = (self.particles as f32/self.workgroup_size as f32).ceil() as usize;

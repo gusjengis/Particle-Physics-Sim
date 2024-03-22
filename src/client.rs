@@ -117,7 +117,6 @@ impl Client {
             style: Default::default(),
         });
         // platform.context().set_pixels_per_point(platform.context().pixels_per_point()*4.0);
-        platform.context().set_pixels_per_point(2.0);
         let mut egui_rpass = RenderPass::new(&wgpu_config.device, wgpu_config.surface_format, 1);
         
         let mut client = Client {
@@ -159,6 +158,10 @@ impl Client {
             data_length_backup: 1
         };
         client.resize(client.canvas.size);
+        client.platform.context().set_pixels_per_point(2.0);
+
+        
+        // client.wgpu_prog =  WGPUProg::new(&mut client.wgpu_config, (client.canvas.size.width as u32, client.canvas.size.height as u32));
         event_loop.run(move |event, _, control_flow| {
             client.platform.handle_event(&event);
             
@@ -178,7 +181,6 @@ impl Client {
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                         // new_inner_size is &&mut so we have to dereference it twice
-    
                         client.resize(**new_inner_size);
                     }
                     _ => {}
@@ -187,7 +189,8 @@ impl Client {
             Event::RedrawRequested(window_id) if window_id == client.canvas.window.id() => {
                 match client.render() {
                     Ok(_) => {}
-                    Err(wgpu::SurfaceError::Lost) => client.resize(client.canvas.size.clone()),
+                        
+                        Err(wgpu::SurfaceError::Lost) => {client.resize(client.canvas.size.clone());} ,
                     Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                     Err(e) => eprintln!("{:?}", e),
                 }
@@ -201,14 +204,15 @@ impl Client {
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+        // println!("{}, {}", new_size.width, new_size.height);
         if new_size.width > 0 && new_size.height > 0 {
             self.minimized = false;
             self.canvas.updateSize(new_size);
-            self.wgpu_prog.resize(&mut self.wgpu_config, (self.canvas.size.width as u32, self.canvas.size.height as u32));
             self.wgpu_config.config.width = new_size.width;
             self.wgpu_config.config.height = new_size.height;
             self.wgpu_config.size = new_size;
- 
+            
+            self.wgpu_prog.resize(&mut self.wgpu_config, (self.canvas.size.width as u32, self.canvas.size.height as u32));
             self.wgpu_config.surface.configure(&self.wgpu_config.device, &self.wgpu_config.config);
 
             let windowDim = self.wgpu_config.size;
@@ -269,7 +273,7 @@ impl Client {
                             ]
                         ));
                     self.wgpu_prog.shader_prog.release(&mut self.wgpu_config);
-                        
+                    
                 }
                 return true;
             }
@@ -492,6 +496,8 @@ impl Client {
                     } => {
                             self.A = true;
                             if self.ctrl {
+                                println!("{}, {}", self.canvas.size.width as i32, self.canvas.size.height as i32);
+                                println!("{}, {}", self.wgpu_prog.shader_prog.hit_tex.dimensions.0 as i32, self.wgpu_prog.shader_prog.hit_tex.dimensions.1 as i32);
                                 self.wgpu_prog.shader_prog.buffers.selectangle_input.updateUniform(&self.wgpu_config.device, bytemuck::cast_slice(
                                     &[
                                         bytemuck::cast::<_, f32>(0 as i32),
@@ -770,7 +776,6 @@ impl Client {
                 render_pass3.set_bind_group(0, &self.wgpu_prog.dim_uniform.bind_group, &[]);
                 render_pass3.set_bind_group(1, &self.wgpu_prog.shader_prog.buffers.pos_buffer.bind_group, &[]);
                 render_pass3.set_bind_group(2, &self.wgpu_prog.shader_prog.buffers.radii_buffer.bind_group, &[]);
-                // render_pass3.set_bind_group(3, &self.wgpu_prog.shader_prog.color_buffer.bind_group, &[]);
                 render_pass3.set_bind_group(3, &self.wgpu_prog.shader_prog.buffers.mov_buffers.bind_group, &[]);
                 render_pass3.set_bind_group(4, &self.wgpu_prog.shader_prog.buffers.contact_buffers.bind_group, &[]);
                 render_pass3.set_bind_group(5, &self.wgpu_prog.ren_set_uniform.bind_group, &[]);
@@ -800,14 +805,13 @@ impl Client {
 
             //     render_pass4.set_pipeline(&self.wgpu_prog.render_pipeline4);
             //     render_pass4.set_bind_group(0, &self.wgpu_prog.dim_uniform.bind_group, &[]);
-            //     render_pass4.set_bind_group(1, &self.wgpu_prog.shader_prog.pos_buffer.bind_group, &[]);
-            //     render_pass4.set_bind_group(2, &self.wgpu_prog.shader_prog.radii_buffer.bind_group, &[]);
-            //     // render_pass4.set_bind_group(3, &self.wgpu_prog.shader_prog.color_buffer.bind_group, &[]);
-            //     render_pass4.set_bind_group(3, &self.wgpu_prog.shader_prog.mov_buffers.bind_group, &[]);
-            //     render_pass4.set_bind_group(4, &self.wgpu_prog.shader_prog.contact_buffers.bind_group, &[]);
+            //     render_pass4.set_bind_group(1, &self.wgpu_prog.shader_prog.buffers.pos_buffer.bind_group, &[]);
+            //     render_pass4.set_bind_group(2, &self.wgpu_prog.shader_prog.buffers.radii_buffer.bind_group, &[]);
+            //     render_pass4.set_bind_group(3, &self.wgpu_prog.shader_prog.buffers.mov_buffers.bind_group, &[]);
+            //     render_pass4.set_bind_group(4, &self.wgpu_prog.shader_prog.buffers.contact_buffers.bind_group, &[]);
             //     render_pass4.set_bind_group(5, &self.wgpu_prog.ren_set_uniform.bind_group, &[]);
-            //     render_pass4.set_bind_group(6, &self.wgpu_prog.shader_prog.material_buffer.bind_group, &[]);
-            //     render_pass4.set_bind_group(7, &self.wgpu_prog.shader_prog.selections.bind_group, &[]);
+            //     render_pass4.set_bind_group(6, &self.wgpu_prog.shader_prog.buffers.material_buffer.bind_group, &[]);
+            //     render_pass4.set_bind_group(7, &self.wgpu_prog.shader_prog.buffers.selections.bind_group, &[]);
             //     render_pass4.set_vertex_buffer(0, self.wgpu_prog.vertex_buffer.slice(..));
             //     render_pass4.set_index_buffer(self.wgpu_prog.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
                 

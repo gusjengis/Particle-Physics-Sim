@@ -333,5 +333,4 @@ fn walls(id: u32) {
 // fn stress_tensor(id: u32, force: vec2<f32>, delta: vec2<f32>) -> vec3<f32> {
 //     var tensor = vec3(0.0, 0.0, 0.0);
 //     let 
-    
 // }

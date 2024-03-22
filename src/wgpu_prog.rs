@@ -349,31 +349,31 @@ impl WGPUProg {
     pub fn resize(&mut self, config: &mut WGPUConfig, dimensions: (u32, u32)) {
         self.shader_prog.hit_tex = Texture::new_from_dimensions(config, dimensions, 0, wgpu::TextureFormat::Bgra8Unorm);
         
-        let click_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Click compute"),
-            bind_group_layouts: &[&self.shader_prog.buffers.click_input.bind_group_layout, &self.shader_prog.buffers.selections.bind_group_layout, &self.shader_prog.hit_tex.bind_group_layout, &self.shader_prog.buffers.click_buffer.bind_group_layout, &self.shader_prog.buffers.mov_buffers.bind_group_layout],
-            push_constant_ranges: &[]
-        });
+        // let click_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        //     label: Some("Click compute"),
+        //     bind_group_layouts: &[&self.shader_prog.buffers.click_input.bind_group_layout, &self.shader_prog.buffers.selections.bind_group_layout, &self.shader_prog.hit_tex.bind_group_layout, &self.shader_prog.buffers.click_buffer.bind_group_layout, &self.shader_prog.buffers.mov_buffers.bind_group_layout],
+        //     push_constant_ranges: &[]
+        // });
 
-        self.shader_prog.click_compute_pipeline = config.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: None,
-            layout: Some(&click_compute_pipeline_layout),
-            module: &self.shader_prog.click_compute_shader,
-            entry_point: "main",
-        });
+        // self.shader_prog.click_compute_pipeline = config.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        //     label: None,
+        //     layout: Some(&click_compute_pipeline_layout),
+        //     module: &self.shader_prog.click_compute_shader,
+        //     entry_point: "main",
+        // });
 
-        let selectangle_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Selectangle compute"),
-            bind_group_layouts: &[&self.shader_prog.buffers.selectangle_input.bind_group_layout, &self.shader_prog.buffers.selections.bind_group_layout, &self.shader_prog.hit_tex.bind_group_layout, &self.shader_prog.buffers.click_buffer.bind_group_layout, &self.shader_prog.buffers.mov_buffers.bind_group_layout],
-            push_constant_ranges: &[]
-        });
+        // let selectangle_compute_pipeline_layout = config.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        //     label: Some("Selectangle compute"),
+        //     bind_group_layouts: &[&self.shader_prog.buffers.selectangle_input.bind_group_layout, &self.shader_prog.buffers.selections.bind_group_layout, &self.shader_prog.hit_tex.bind_group_layout, &self.shader_prog.buffers.click_buffer.bind_group_layout, &self.shader_prog.buffers.mov_buffers.bind_group_layout],
+        //     push_constant_ranges: &[]
+        // });
 
-        self.shader_prog.selectangle_compute_pipeline = config.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: None,
-            layout: Some(&selectangle_compute_pipeline_layout),
-            module: &self.shader_prog.click_compute_shader,
-            entry_point: "main",
-        });
+        // self.shader_prog.selectangle_compute_pipeline = config.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        //     label: None,
+        //     layout: Some(&selectangle_compute_pipeline_layout),
+        //     module: &self.shader_prog.click_compute_shader,
+        //     entry_point: "main",
+        // });
     }
 }
 
