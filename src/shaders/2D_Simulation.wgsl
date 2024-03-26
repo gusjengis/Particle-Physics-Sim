@@ -37,7 +37,7 @@ struct Settings {
     friction_coefficient: f32,
     rotation: i32,
     linear_contact_bonds: i32,
-    gravity_acc: f32,
+    gravity_acc: f32, // make this  a vector with an x and y acceleration maybe a third component (value = 0) if including rotation
     stiffness: f32,
     bonds_tear: i32,
     bond_force_limit: f32,
@@ -75,8 +75,13 @@ struct Material {
 
 
 const deltaTime: f32 = 0.0000390625;
+// deltaTime should be a function of the particle mass and stiffness dt = sqrt(min_particle_mass/max_parallel_stiffness)
+// It's more complicated than that, but that is a good starting point. At the very least we should check to see what that calc would give us relative to what we're using.
 const PI = 3.141592653589793238;
 
+// This calculation comes after the laws of motion calculation
+// When we start here, we have the updated position and orientation, but the velocity is one timestep back
+// and the velocity_buf is half a time step back.
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // data[id*4u] = 1.0;
@@ -88,12 +93,23 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let mat_id = material_pointers[id];
     // let damping: f32 = 0.2; // Damping factor, can be adjusted
 
+    let damping: f32 = 0.2; // Damping factor, can be adjusted
+    // MTIF ("move to input file", see explanation below)
+    // This is my first time making what I expect will be a recurring comment, so I'll explain it here.
+    // I think we should keep all variables in a separate file of input parameters. 
+    // This may cost us some flexibility in terms of the simulator being interactive, but we're getting to the point where we're tryin to be scientific in our approach. 
+    // And that involves a fairly rigid, controlled environment anyway. 
+    // We can figure out a way to bring back an interactive mode when the bond physics is working 
+
     var net_force = vec2(0.0, 0.0);
     var net_moment = 0.0;
     // var stress_tensor = vec3(0.0, 0.0, 0.0);
 
+    // START of NOT REVIEWED BLOCK
     // Bonds
     // let bond_shear_lim = 0.5;
+    //Bonds
+    let bond_shear_lim = 0.5; // MTIF
     var bonded_particles = array<i32, 6u>(-1,-1,-1,-1,-1,-1);
     if settings.bonds != 0 {
         let start = bond_info[id].x;
@@ -119,6 +135,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                         let ideal_rot = rot[bond_id];
                         let rot_disp = rot[id] - rot[bond_id];
                         net_moment -= (radii[id])*rot_disp/10000.0;
+                        net_moment -= (radii[id])*rot_disp/10000.0; // MTIF
+
                     }
                 } else {
                     // Linear Bonds, w/ shear resistance 
@@ -230,12 +248,16 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             if bonded == false {
                 contacts[i].bonded = -1;
             }
+            // END of NOT REVIEWED BLOCK
             let a = contacts[i].a;
             let b = contacts[i].b;
             let overlap = max(-distance(a, b), 0.0);
+            // this is an absolute approach to calculating the normal force.
+            // nothing wrong with it, but the tangential force needs to be calculated incementally
+            // I suggest we calculate the normal force incrementally as well.
             
-            var normal_stiffness = 10.0;
-            var shear_stiffness = 0.25;
+            var normal_stiffness = 10.0; // MTIF
+            var shear_stiffness = 0.25; // MTIF
             if mat_id != -1 {
                 normal_stiffness = (materials[(material_pointers[b])].normal_stiffness);
                 shear_stiffness = (materials[(material_pointers[b])].shear_stiffness);
@@ -244,6 +266,11 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             let normal = normalize(positions[a] - positions[b]); 
             let tangent = vec2(-normal.y, normal.x);
 
+            // This looks dangerous to me!
+            // I think this is duplicating part of the work that the laws of motion should be doing.
+            // So if it's happening here, too, it might be happening twice.
+            // Or more like 1.5 times, because the values aren't being stored.
+            // It's possibly fine, but it's worth checking. Especially if any part of the calculation were to change...
             let del_pos_a = velocities[a]*deltaTime;
             let del_pos_b = velocities[b]*deltaTime;
             let del_rot_a = rot_vel[a]*deltaTime*(radii[a]);//-overlap/2.0);
@@ -261,6 +288,16 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 friction_limit = settings.bond_shear_lim;
                 moment = false;
             }
+            // I like some things about the  code below, but it's only the contact part of the force-disp
+            // calculation. The bond part is separate. I think we should combine them.
+            // I think we should have a single function for each "contact model"
+            // For any given contact, this part of the code should call the appropriate function
+            // corresponding to the contact model, which will return the forces and moment.
+            // I think it will only take two functions: one for linear contacts and one for parallel bonded contacts.
+            // The linear contact can have a bonding ability that defaults to false for unbonded behavior.
+            // The parallel bond function will have its own force-displacement calculation, call the linear contact 
+            // function (with bonding ability set to false) and then add the forces and moment together.
+            // With this approach, we only have one place to change the contact forces in the calculation cycle.
             contacts[i].tangent_force = contacts[i].tangent_force + rel_tangent*shear_stiffness;//clamp(contacts[i].tangent_force + rel_tangent*shear_stiffness, -friction_limit, friction_limit);
             net_force += settings.damping * (normal*normal_force + tangent*contacts[i].tangent_force);
             // if moment {
@@ -285,18 +322,35 @@ fn distance(a: i32, b: i32) -> f32 {
 fn store_forces(id: u32, mat_id: i32, net_force: vec2<f32>, net_moment: f32) {
     // Apply sum of forces and gravity to velocities
     var density = 1.0;
+        }
+    }
+    
+    var density = 1.0; // MTIF
+    // Move laws of motion to the beginning of the calculation cycle
+        // Let's rethink this and break it down into its components and put them in the right order.
+        // Translational motion, then rotational motion
+        // The outcome will be an updated position and orientation.
+        // The velocity we use will be a temporary use, half step (i.e., t + dt/2) velocity
+    
+        // Translational Motion
     if mat_id != -1 {
         density = materials[mat_id].density;
     }
-    let mass1 = density * PI * radii[id] * radii[id];
-    let rot_inertia = 0.5*mass1*radii[id]*radii[id];
-    velocities_buf[id] = velocities[id] + net_force/mass1;
-    rot_vel_buf[id] = rot_vel[id] + net_moment/rot_inertia;
+    let mass1 = density * PI * radii[id] * radii[id]; // make it a function mass(density,radius)
+    //let half_step_velocity = velocities[id] + 0.5 * (resultant_force/mass1 - grav) * deltaTime
+        // Rotational Motion
+    let rot_inertia = 0.5 * mass1 * radii[id] * radii[id]; // make it a function rot_inertia(density,radius)
+    //let half_step_ang_vel = rot_vel[id] + 0.5 * net_moment/rot_inertia) * deltaTime;
+    
+    // Not sure these belong here. They seem to be part of the laws of motion calculation.
+    // But they're not entirely consistent with the other set of laws of motion in 2D_LOM.wgsl,
+    // so something's going to be inconsistent.
+    rot_vel_buf[id] = 
     if settings.gravity == 1 && settings.planet_mode == 1  {
         let delta = (vec2(0.0, 0.0) - positions[id]);
         velocities_buf[id] += delta/length(delta) * 9.81 * settings.gravity_acc * deltaTime;
     } else if settings.gravity == 1 {
-        let gravity = 9.81 * settings.gravity_acc * deltaTime;
+        let gravity = 9.81 * settings.gravity_acc * deltaTime; // MTIF (9.81)
         velocities_buf[id] += vec2(0.0, -gravity);
     }
 }
@@ -305,8 +359,8 @@ fn walls(id: u32) {
     // BS Walls
     let pos = positions[id];
     let rad = radii[id];
-    let elasticity = 0.5;
-    let anti_stick_coating = 0.01;
+    let elasticity = 0.5; // MTIF
+    let anti_stick_coating = 0.01; // MTIF
     let yH = settings.vert_bound;
     let xW = settings.hor_bound;
     
@@ -333,4 +387,5 @@ fn walls(id: u32) {
 // fn stress_tensor(id: u32, force: vec2<f32>, delta: vec2<f32>) -> vec3<f32> {
 //     var tensor = vec3(0.0, 0.0, 0.0);
 //     let 
+    
 // }
